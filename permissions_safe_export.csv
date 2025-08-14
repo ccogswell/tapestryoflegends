@@ -1,0 +1,4 @@
+granted_at,granted_by,id,metadata,permission_level,registry,shared_group,shared_group_id,user_id
+2025-08-11T04:03:03.368348,205539361096335371,1,MetaData(),owner,<sqlalchemy.orm.decl_api.registry object at 0x7f6318d7b450>,<models.SharedGroup object at 0x7f63183f1090>,2,205539361096335371
+2025-08-11T22:21:27.015408,205539361096335371,2,MetaData(),manager,<sqlalchemy.orm.decl_api.registry object at 0x7f6318d7b450>,<models.SharedGroup object at 0x7f63183f1110>,3,1403151954586239010
+2025-08-12T18:30:11.155071,205539361096335371,3,MetaData(),speaker,<sqlalchemy.orm.decl_api.registry object at 0x7f6318d7b450>,<models.SharedGroup object at 0x7f63183f1190>,4,1060391730169520198

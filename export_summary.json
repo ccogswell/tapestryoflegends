@@ -1,0 +1,11 @@
+{
+  "export_date": "2025-08-14T06:50:07.897737",
+  "exported_files": [
+    "aliases_safe_export.csv",
+    "guilds_safe_export.csv",
+    "stats_safe_export.csv",
+    "shared_groups_safe_export.csv",
+    "permissions_safe_export.csv"
+  ],
+  "success": true
+}
