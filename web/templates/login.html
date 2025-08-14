@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Quest Keeper{% endblock %}
+
+{% block login_content %}
+<div class="container">
+    <div class="row justify-content-center align-items-center min-vh-100">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow">
+                <div class="card-body text-center p-5">
+                    <div class="mb-4">
+                        <i class="fas fa-dragon fa-4x text-primary"></i>
+                        <h2 class="mt-3">Quest Keeper</h2>
+                        <p class="text-muted">D&D Character & Session Management</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h5>Access Your Dashboard</h5>
+                        <p class="text-muted small">Manage your characters, view session history, and track your D&D adventures</p>
+                    </div>
+                    
+                    <a href="{{ url_for('web.login') }}" class="btn btn-discord btn-lg w-100">
+                        <i class="fab fa-discord"></i> Login with Discord
+                    </a>
+                    
+                    <div class="mt-4">
+                        <small class="text-muted">
+                            New to Quest Keeper? Start by using <code>/alias create</code> in your Discord server!
+                        </small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <div class="row">
+                    <div class="col-4">
+                        <div class="card card-body text-center">
+                            <i class="fas fa-mask fa-2x text-primary mb-2"></i>
+                            <small>Character Aliases</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="card card-body text-center">
+                            <i class="fas fa-dice-d20 fa-2x text-success mb-2"></i>
+                            <small>Session Tracking</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="card card-body text-center">
+                            <i class="fas fa-trophy fa-2x text-warning mb-2"></i>
+                            <small>Achievements</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

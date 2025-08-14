@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Quest Keeper{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-cogs"></i> Admin Dashboard</h1>
+    <div>
+        <button class="btn btn-outline-primary btn-sm" onclick="refreshStats()">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+</div>
+
+<!-- System Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Guilds</h5>
+                        <h2 id="stat-guilds">{{ stats.total_guilds }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-server fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Characters</h5>
+                        <h2 id="stat-aliases">{{ stats.total_aliases }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-mask fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Sessions</h5>
+                        <h2 id="stat-sessions">{{ stats.total_sessions }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-dice-d20 fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Active</h5>
+                        <h2 id="stat-active">{{ stats.active_sessions }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-play fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Characters -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-mask"></i> Recent Characters</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_aliases %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Character</th>
+                                <th>User</th>
+                                <th>Guild</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for alias in recent_aliases %}
+                            <tr>
+                                <td>
+                                    {% if alias.avatar_url %}
+                                        <img src="{{ alias.avatar_url }}" alt="Avatar" class="rounded-circle me-1" style="width: 20px; height: 20px;">
+                                    {% endif %}
+                                    <strong>{{ alias.character_name }}</strong>
+                                </td>
+                                <td>{{ alias.user_id }}</td>
+                                <td>{{ alias.guild.guild_name if alias.guild else 'Unknown' }}</td>
+                                <td>{{ alias.created_at.strftime('%b %d') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No characters created recently.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Sessions -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-dice-d20"></i> Recent Sessions</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_sessions %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Session</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in recent_sessions %}
+                            <tr>
+                                <td><strong>{{ session.session_name }}</strong></td>
+                                <td>{{ session.session_type }}</td>
+                                <td>
+                                    {% if session.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Ended</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ session.created_at.strftime('%b %d') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No sessions created recently.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-tools"></i> Admin Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <a href="{{ url_for('web.admin_guilds') }}" class="btn btn-outline-primary w-100 mb-2">
+                            <i class="fas fa-server"></i><br>
+                            Manage Guilds
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('web.admin_users') }}" class="btn btn-outline-success w-100 mb-2">
+                            <i class="fas fa-users"></i><br>
+                            Manage Users
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-info w-100 mb-2" onclick="exportData()">
+                            <i class="fas fa-download"></i><br>
+                            Export Data
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-warning w-100 mb-2" onclick="viewLogs()">
+                            <i class="fas fa-file-alt"></i><br>
+                            View Logs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function refreshStats() {
+    try {
+        const response = await fetch('/web/api/admin/stats');
+        const stats = await response.json();
+        
+        document.getElementById('stat-guilds').textContent = stats.guilds;
+        document.getElementById('stat-aliases').textContent = stats.aliases;
+        document.getElementById('stat-sessions').textContent = stats.sessions;
+        document.getElementById('stat-active').textContent = stats.active_sessions;
+        
+        // Show success message
+        showAlert('Stats refreshed successfully!', 'success');
+    } catch (error) {
+        showAlert('Failed to refresh stats: ' + error.message, 'danger');
+    }
+}
+
+function exportData() {
+    showAlert('Data export functionality coming soon!', 'info');
+}
+
+function viewLogs() {
+    showAlert('Log viewer coming soon!', 'info');
+}
+
+function showAlert(message, type) {
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid .col-md-10');
+    container.insertBefore(alert, container.firstChild);
+    
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Quest Keeper{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="fas fa-tachometer-alt"></i> Welcome back, {{ user.username }}!</h1>
+        <p class="text-muted">Manage your D&D characters and track your roleplay sessions</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Enhanced At-a-Glance Statistics Cards -->
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Aliases</h5>
+                        <h2>{{ stats.total_aliases }}</h2>
+                        <small class="opacity-75">Characters created</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-mask fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Groups</h5>
+                        <h2>{{ stats.total_groups }}</h2>
+                        <small class="opacity-75">Systems/campaigns</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-folder fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Servers</h5>
+                        <h2>{{ stats.total_servers }}</h2>
+                        <small class="opacity-75">Active Discord servers</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-server fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Sessions</h5>
+                        <h2>{{ stats.total_sessions }}</h2>
+                        <small class="opacity-75">RP sessions joined</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-dice-d20 fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recently Used Aliases -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-clock"></i> Recently Used</h5>
+                <a href="{{ url_for('web.aliases') }}" class="btn btn-sm btn-outline-primary">Manage All</a>
+            </div>
+            <div class="card-body">
+                {% if recently_used %}
+                    {% for alias in recently_used %}
+                    <div class="d-flex align-items-center mb-2 p-2 border rounded">
+                        {% if alias.avatar_url %}
+                            <img src="{{ alias.avatar_url }}" alt="Avatar" class="rounded-circle me-3" style="width: 32px; height: 32px;">
+                        {% else %}
+                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-3" style="width: 32px; height: 32px;">
+                                <i class="fas fa-user text-white"></i>
+                            </div>
+                        {% endif %}
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">{{ alias.character_name }}</div>
+                            <small class="text-muted">
+                                <code>{{ alias.trigger_text }}</code> • {{ alias.last_used }}
+                                {% if alias.group_name %} • {{ alias.group_name }}{% endif %}
+                            </small>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{{ url_for('web.aliases') }}#alias-{{ alias.id }}" class="btn btn-outline-primary btn-sm" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-clock fa-2x mb-2"></i>
+                        <p>No recently used aliases yet!</p>
+                        <small>Start roleplaying to see your most used characters here</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Pinned/Favorite Aliases -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-star text-warning"></i> Favorite Aliases</h5>
+                <a href="{{ url_for('web.aliases') }}" class="btn btn-sm btn-outline-primary">Manage All</a>
+            </div>
+            <div class="card-body">
+                {% if favorite_aliases %}
+                    {% for alias in favorite_aliases %}
+                    <div class="d-flex align-items-center mb-2 p-2 border rounded">
+                        {% if alias.avatar_url %}
+                            <img src="{{ alias.avatar_url }}" alt="Avatar" class="rounded-circle me-3" style="width: 32px; height: 32px;">
+                        {% else %}
+                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-3" style="width: 32px; height: 32px;">
+                                <i class="fas fa-user text-white"></i>
+                            </div>
+                        {% endif %}
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">
+                                {{ alias.character_name }}
+                                <i class="fas fa-star text-warning ms-1"></i>
+                            </div>
+                            <small class="text-muted">
+                                <code>{{ alias.trigger_text }}</code> • {{ alias.guild_name }}
+                                {% if alias.group_name %} • {{ alias.group_name }}{% endif %}
+                            </small>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{{ url_for('web.aliases') }}#alias-{{ alias.id }}" class="btn btn-outline-primary btn-sm" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-star fa-2x mb-2"></i>
+                        <p>No favorite aliases yet!</p>
+                        <small>Star your favorite characters for quick access</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-bolt"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <a href="{{ url_for('web.aliases') }}" class="btn btn-outline-primary btn-lg w-100 mb-2">
+                            <i class="fas fa-mask fa-2x d-block mb-2"></i>
+                            Manage Aliases
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="/discord" class="btn btn-outline-success btn-lg w-100 mb-2">
+                            <i class="fab fa-discord fa-2x d-block mb-2"></i>
+                            Join Discord
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-info btn-lg w-100 mb-2" onclick="window.open('/guide', '_blank')">
+                            <i class="fas fa-book fa-2x d-block mb-2"></i>
+                            User Guide
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('web.logout') }}" class="btn btn-outline-secondary btn-lg w-100 mb-2">
+                            <i class="fas fa-sign-out-alt fa-2x d-block mb-2"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

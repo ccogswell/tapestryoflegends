@@ -1,0 +1,121 @@
+services:
+  # Shared PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: shared-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=tapestryoflegends
+      - POSTGRES_USER=${DB_USER:-admin}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - shared-network
+    ports:
+      - "5432:5432"
+
+  # Tapestry of Legends Bot (Discord Bot + Web Interface)
+  tapestryoflegends:
+    build: ./tapestryoflegends
+    container_name: tapestryoflegends
+    restart: unless-stopped
+    environment:
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - DATABASE_URL=postgresql://${DB_USER:-admin}:${DB_PASSWORD}@postgres:5432/tapestryoflegends
+      - SESSION_SECRET=${SESSION_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-${SESSION_SECRET}}
+      - DOMAIN_NAME=${DOMAIN_NAME}
+      - FLASK_ENV=production
+    ports:
+      - "5001:5000"
+    networks:
+      - shared-network
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy (Ready for multi-app routing)
+  nginx:
+    image: nginx:alpine
+    container_name: shared-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx-conf:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    networks:
+      - shared-network
+    depends_on:
+      - tapestryoflegends
+
+  # Future Applications (commented out until ready)
+  
+  # tapestryofheros:
+  #   build: ./tapestryofheros
+  #   container_name: tapestryofheros
+  #   restart: unless-stopped
+  #   environment:
+  #     - DATABASE_URL=postgresql://${DB_USER:-admin}:${DB_PASSWORD}@postgres:5432/tapestryofheros
+  #     - SESSION_SECRET=${SESSION_SECRET}
+  #     - FLASK_ENV=production
+  #   ports:
+  #     - "5002:5000"
+  #   networks:
+  #     - shared-network
+  #   depends_on:
+  #     - postgres
+
+  # tapestryofworlds:
+  #   build: ./tapestryofworlds
+  #   container_name: tapestryofworlds
+  #   restart: unless-stopped
+  #   environment:
+  #     - DATABASE_URL=postgresql://${DB_USER:-admin}:${DB_PASSWORD}@postgres:5432/tapestryofworlds
+  #     - SESSION_SECRET=${SESSION_SECRET}
+  #     - FLASK_ENV=production
+  #   ports:
+  #     - "5003:5000"
+  #   networks:
+  #     - shared-network
+  #   depends_on:
+  #     - postgres
+
+  # tapestry-frontend:
+  #   build: ./tapestry-frontend
+  #   container_name: tapestry-frontend
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5001:3000"
+  #   networks:
+  #     - shared-network
+  #   environment:
+  #     - REACT_APP_API_URL=https://api.loomoflegends.com
+
+  # tapestry-backend:
+  #   build: ./tapestry-backend
+  #   container_name: tapestry-backend
+  #   restart: unless-stopped
+  #   environment:
+  #     - DATABASE_URL=postgresql://${DB_USER:-admin}:${DB_PASSWORD}@postgres:5432/shared_db
+  #     - JWT_SECRET=${JWT_SECRET}
+  #   ports:
+  #     - "5004:5000"
+  #   networks:
+  #     - shared-network
+  #   depends_on:
+  #     - postgres
+
+volumes:
+  postgres_data:
+
+networks:
+  shared-network:
+    driver: bridge

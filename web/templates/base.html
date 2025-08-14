@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Quest Keeper{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --discord-blurple: #5865F2;
+            --discord-dark: #2C2F33;
+            --discord-darker: #23272A;
+        }
+        
+        .navbar-brand {
+            color: var(--discord-blurple) !important;
+        }
+        
+        .btn-discord {
+            background-color: var(--discord-blurple);
+            border-color: var(--discord-blurple);
+        }
+        
+        .btn-discord:hover {
+            background-color: #4752C4;
+            border-color: #4752C4;
+        }
+        
+        .card-header {
+            background-color: var(--discord-dark);
+            color: white;
+        }
+        
+        .sidebar {
+            background-color: var(--discord-darker);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .sidebar .nav-link {
+            color: #B9BBBE;
+        }
+        
+        .sidebar .nav-link:hover {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar .nav-link.active {
+            color: white;
+            background-color: var(--discord-blurple);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('web.dashboard') }}">
+                <i class="fas fa-dragon"></i> Quest Keeper
+            </a>
+            
+            {% if session.discord_user %}
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        {% if session.discord_user.avatar %}
+                            <img src="{{ session.discord_user.avatar }}" alt="Avatar" class="rounded-circle me-1" style="width: 24px; height: 24px;">
+                        {% endif %}
+                        {{ session.discord_user.username }}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('web.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('web.aliases') }}"><i class="fas fa-mask"></i> My Aliases</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('web.group_manager') }}"><i class="fas fa-folder-open"></i> Group Manager</a></li>
+                        <li><a class="dropdown-item" href="/web/bulk-manage"><i class="fas fa-table"></i> Bulk Manage</a></li>
+                        <li><a class="dropdown-item" href="/web/shared-groups"><i class="fas fa-users"></i> Shared Groups</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('web.sessions') }}"><i class="fas fa-dice-d20"></i> My Sessions</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('web.logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            {% if session.discord_user %}
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar p-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web.dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web.aliases') }}">
+                            <i class="fas fa-mask"></i> Aliases
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web.group_manager') }}">
+                            <i class="fas fa-folder-open"></i> Group Manager
+                        </a>
+                    </li>
+                    <li class="nav-item ms-3">
+                        <a class="nav-link" href="/web/bulk-manage">
+                            <i class="fas fa-table"></i> Bulk Manage
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/web/shared-groups">
+                            <i class="fas fa-users"></i> Shared Groups
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web.sessions') }}">
+                            <i class="fas fa-dice-d20"></i> Sessions
+                        </a>
+                    </li>
+                    
+                    <!-- Admin Section -->
+                    {% if is_admin %}
+                    <li class="nav-item mt-3">
+                        <h6 class="text-muted">Administration</h6>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web.admin_dashboard') }}">
+                            <i class="fas fa-cogs"></i> Admin Panel
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web.admin_guilds') }}">
+                            <i class="fas fa-server"></i> Guilds
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web.admin_users') }}">
+                            <i class="fas fa-users"></i> Users
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="col-md-10 p-4">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </div>
+            {% else %}
+            <!-- Full width for login page -->
+            <div class="col-12">
+                {% block login_content %}{% endblock %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

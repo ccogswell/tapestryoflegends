@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Shared Groups{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-white mb-0">
+            <i class="fas fa-users"></i> Shared Groups
+        </h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createGroupModal">
+            <i class="fas fa-plus"></i> Create Shared Group
+        </button>
+    </div>
+
+    <!-- Shared Groups Grid -->
+    <div class="row" id="shared-groups-container">
+        <!-- Groups will be loaded here -->
+    </div>
+</div>
+
+<!-- Create Group Modal -->
+<div class="modal fade" id="createGroupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Shared Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createGroupForm">
+                    <div class="mb-3">
+                        <label for="groupName" class="form-label">Group Name *</label>
+                        <input type="text" class="form-control" id="groupName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="subgroupName" class="form-label">Subgroup Name</label>
+                        <input type="text" class="form-control" id="subgroupName">
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="allowMemberInvites">
+                            <label class="form-check-label" for="allowMemberInvites">
+                                Allow managers to invite new members
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createGroup()">Create Group</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Group Details Modal -->
+<div class="modal fade" id="groupDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="groupDetailsTitle">Group Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-users"></i> Members</h6>
+                        <div id="group-members-list">
+                            <!-- Members will be loaded here -->
+                        </div>
+                        
+                        <div id="invite-section" class="mt-3" style="display: none;">
+                            <h6><i class="fas fa-user-plus"></i> Invite Member</h6>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="inviteUserId" placeholder="Discord User ID">
+                                <select class="form-select" id="invitePermissionLevel">
+                                    <option value="speaker">Speaker</option>
+                                    <option value="manager">Manager</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="inviteUser()">Invite</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-mask"></i> Aliases in Group</h6>
+                        <div id="group-aliases-list">
+                            <!-- Aliases will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.group-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 15px;
+    color: white;
+    transition: transform 0.2s;
+}
+
+.group-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+}
+
+.permission-badge {
+    font-size: 0.8em;
+    padding: 0.25rem 0.5rem;
+}
+
+.permission-owner {
+    background-color: #dc3545;
+}
+
+.permission-manager {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.permission-speaker {
+    background-color: #28a745;
+}
+
+.member-item {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.alias-item {
+    padding: 0.25rem 0.5rem;
+    margin-bottom: 0.25rem;
+    background: #e9ecef;
+    border-radius: 5px;
+    font-size: 0.9em;
+}
+</style>
+
+<script>
+let currentGroupId = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadSharedGroups();
+});
+
+async function loadSharedGroups() {
+    try {
+        const response = await fetch('/web/api/shared-groups');
+        const data = await response.json();
+        
+        if (data.success) {
+            displayGroups(data.groups);
+        } else {
+            alert('Failed to load shared groups: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error loading shared groups:', error);
+        alert('Failed to load shared groups');
+    }
+}
+
+function displayGroups(groups) {
+    const container = document.getElementById('shared-groups-container');
+    
+    if (groups.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="text-center text-muted p-4">
+                    <i class="fas fa-users fa-3x mb-3"></i>
+                    <h5>No Shared Groups Yet</h5>
+                    <p>Create a shared group to start collaborating with other users on aliases.</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = groups.map(group => `
+        <div class="col-md-4 mb-4">
+            <div class="card group-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title">${group.group_name}</h5>
+                        <span class="badge permission-${group.permission_level} permission-badge">
+                            ${group.permission_level.toUpperCase()}
+                        </span>
+                    </div>
+                    
+                    ${group.subgroup_name ? `<h6 class="text-light">${group.subgroup_name}</h6>` : ''}
+                    
+                    <p class="card-text">${group.description || 'No description'}</p>
+                    
+                    <div class="d-flex justify-content-between text-sm mb-3">
+                        <span><i class="fas fa-mask"></i> ${group.alias_count} aliases</span>
+                        <span><i class="fas fa-users"></i> ${group.member_count} members</span>
+                    </div>
+                    
+                    <button class="btn btn-light btn-sm w-100" onclick="viewGroupDetails(${group.id})">
+                        <i class="fas fa-eye"></i> View Details
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function createGroup() {
+    const formData = {
+        group_name: document.getElementById('groupName').value,
+        subgroup_name: document.getElementById('subgroupName').value,
+        description: document.getElementById('description').value,
+        allow_member_invites: document.getElementById('allowMemberInvites').checked
+    };
+    
+    if (!formData.group_name) {
+        alert('Group name is required');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/web/api/shared-groups', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('createGroupModal')).hide();
+            document.getElementById('createGroupForm').reset();
+            loadSharedGroups(); // Reload the groups
+            alert('Shared group created successfully!');
+        } else {
+            alert('Failed to create group: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error creating group:', error);
+        alert('Failed to create group');
+    }
+}
+
+async function viewGroupDetails(groupId) {
+    currentGroupId = groupId;
+    
+    try {
+        // Load group members
+        const membersResponse = await fetch(`/web/api/shared-groups/${groupId}/members`);
+        const membersData = await membersResponse.json();
+        
+        if (membersData.success) {
+            displayGroupMembers(membersData.members);
+            
+            // Show invite section if user has permission
+            const canInvite = membersData.members.some(m => 
+                m.user_id === '{{ session.discord_user.id if session.discord_user else "" }}' && 
+                (m.permission_level === 'owner' || m.permission_level === 'manager')
+            );
+            
+            document.getElementById('invite-section').style.display = canInvite ? 'block' : 'none';
+        }
+        
+        // Load group aliases
+        loadGroupAliases(groupId);
+        
+        // Show modal
+        new bootstrap.Modal(document.getElementById('groupDetailsModal')).show();
+        
+    } catch (error) {
+        console.error('Error loading group details:', error);
+        alert('Failed to load group details');
+    }
+}
+
+function displayGroupMembers(members) {
+    const container = document.getElementById('group-members-list');
+    
+    container.innerHTML = members.map(member => `
+        <div class="member-item">
+            <div>
+                <strong>User ID: ${member.user_id}</strong>
+                <br>
+                <span class="badge permission-${member.permission_level} permission-badge">
+                    ${member.permission_level.toUpperCase()}
+                </span>
+                ${member.is_owner ? '' : `
+                    <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeMember('${member.user_id}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `}
+            </div>
+            <small class="text-muted">
+                Joined: ${new Date(member.granted_at).toLocaleDateString()}
+            </small>
+        </div>
+    `).join('');
+}
+
+async function inviteUser() {
+    const userId = document.getElementById('inviteUserId').value;
+    const permissionLevel = document.getElementById('invitePermissionLevel').value;
+    
+    if (!userId) {
+        alert('User ID is required');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/web/api/shared-groups/${currentGroupId}/invite`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user_id: userId,
+                permission_level: permissionLevel
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('inviteUserId').value = '';
+            viewGroupDetails(currentGroupId); // Reload details
+            alert('User invited successfully!');
+        } else {
+            alert('Failed to invite user: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error inviting user:', error);
+        alert('Failed to invite user');
+    }
+}
+
+async function removeMember(userId) {
+    if (!confirm('Are you sure you want to remove this member?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/web/api/shared-groups/${currentGroupId}/remove/${userId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            viewGroupDetails(currentGroupId); // Reload details
+            alert('Member removed successfully!');
+        } else {
+            alert('Failed to remove member: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error removing member:', error);
+        alert('Failed to remove member');
+    }
+}
+
+async function loadGroupAliases(groupId) {
+    try {
+        const response = await fetch(`/web/api/shared-groups/${groupId}/aliases`);
+        const data = await response.json();
+        
+        if (data.success) {
+            displayGroupAliases(data.aliases);
+        } else {
+            document.getElementById('group-aliases-list').innerHTML = 
+                `<p class="text-muted">Failed to load aliases: ${data.error}</p>`;
+        }
+    } catch (error) {
+        console.error('Error loading group aliases:', error);
+        document.getElementById('group-aliases-list').innerHTML = 
+            '<p class="text-muted">Failed to load aliases</p>';
+    }
+}
+
+function displayGroupAliases(aliases) {
+    const container = document.getElementById('group-aliases-list');
+    
+    if (aliases.length === 0) {
+        container.innerHTML = '<p class="text-muted">No aliases in this group yet.</p>';
+        return;
+    }
+    
+    container.innerHTML = aliases.map(alias => `
+        <div class="alias-item">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>${alias.name}</strong>
+                    <br>
+                    <small class="text-muted">${alias.trigger} | ${alias.race} ${alias.character_class}</small>
+                    <br>
+                    <small class="text-muted">Owner: ${alias.user_id}</small>
+                </div>
+                <div>
+                    ${alias.message_count || 0} msgs
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+</script>
+{% endblock %}

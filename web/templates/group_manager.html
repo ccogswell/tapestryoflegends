@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+
+{% block title %}Group Manager - Quest Keeper{% endblock %}
+
+{% block content %}
+<style>
+        .group-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            transition: box-shadow 0.2s;
+        }
+        .group-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .permission-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .alias-count {
+            background: #e9ecef;
+            border-radius: 12px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        .shared-user {
+            display: inline-block;
+            margin: 0.2rem;
+            padding: 0.3rem 0.6rem;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 15px;
+            font-size: 0.8rem;
+        }
+        .owner-group {
+            border-left: 4px solid #198754;
+        }
+        .shared-group {
+            border-left: 4px solid #0d6efd;
+        }
+        .manager-group {
+            border-left: 4px solid #fd7e14;
+        }
+        .speaker-group {
+            border-left: 4px solid #6f42c1;
+        }
+        .group-details {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+        }
+        .alias-item {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .alias-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+    </style>
+
+<div class="col-md-10">
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="fas fa-folder-open"></i> Group Manager</h2>
+                    <button class="btn btn-success" onclick="createNewGroup()">
+                        <i class="fas fa-plus"></i> Create New Group
+                    </button>
+                </div>
+
+                <!-- Tabs for different group types -->
+                <ul class="nav nav-tabs mb-4" id="groupTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="my-groups-tab" data-bs-toggle="tab" data-bs-target="#my-groups" type="button" role="tab">
+                            <i class="fas fa-user"></i> My Groups (<span id="my-groups-count">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="shared-with-me-tab" data-bs-toggle="tab" data-bs-target="#shared-with-me" type="button" role="tab">
+                            <i class="fas fa-share-alt"></i> Shared With Me (<span id="shared-count">0</span>)
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab content -->
+                <div class="tab-content" id="groupTabContent">
+                    <!-- My Groups Tab -->
+                    <div class="tab-pane fade show active" id="my-groups" role="tabpanel">
+                        <div id="my-groups-container">
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-spinner fa-spin fa-2x"></i>
+                                <p class="mt-2">Loading your groups...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shared With Me Tab -->
+                    <div class="tab-pane fade" id="shared-with-me" role="tabpanel">
+                        <div id="shared-groups-container">
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-spinner fa-spin fa-2x"></i>
+                                <p class="mt-2">Loading shared groups...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+    <script>
+        let allMyGroups = [];
+        let allSharedGroups = [];
+
+        // Load all group data on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMyGroups();
+            loadSharedGroups();
+        });
+
+        // Load user's own groups
+        function loadMyGroups() {
+            fetch('/web/api/groups/my-groups-detailed', {
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    allMyGroups = data.groups;
+                    displayMyGroups(allMyGroups);
+                    document.getElementById('my-groups-count').textContent = allMyGroups.length;
+                } else {
+                    document.getElementById('my-groups-container').innerHTML = 
+                        `<div class="alert alert-danger">Error loading groups: ${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading my groups:', error);
+                document.getElementById('my-groups-container').innerHTML = 
+                    '<div class="alert alert-danger">Failed to load groups</div>';
+            });
+        }
+
+        // Load groups shared with user
+        function loadSharedGroups() {
+            fetch('/web/api/groups/shared-with-me-detailed', {
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    allSharedGroups = data.groups;
+                    displaySharedGroups(allSharedGroups);
+                    document.getElementById('shared-count').textContent = allSharedGroups.length;
+                } else {
+                    document.getElementById('shared-groups-container').innerHTML = 
+                        `<div class="alert alert-danger">Error loading shared groups: ${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading shared groups:', error);
+                document.getElementById('shared-groups-container').innerHTML = 
+                    '<div class="alert alert-danger">Failed to load shared groups</div>';
+            });
+        }
+
+        // Display user's own groups
+        function displayMyGroups(groups) {
+            const container = document.getElementById('my-groups-container');
+            
+            if (groups.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-folder fa-3x mb-3"></i>
+                        <h5>No Groups Yet</h5>
+                        <p>Create your first character group to organize your aliases!</p>
+                        <button class="btn btn-primary" onclick="createNewGroup()">
+                            <i class="fas fa-plus"></i> Create Group
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            const groupsHtml = groups.map(group => `
+                <div class="group-card owner-group">
+                    <div class="card-header bg-success text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-folder-open"></i>
+                                <strong>${group.group_name}</strong>
+                                ${group.subgroup_name ? `<small>/ ${group.subgroup_name}</small>` : ''}
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="alias-count">${group.alias_count} aliases</span>
+                                <span class="permission-badge badge bg-light text-dark">Owner</span>
+                                <button class="btn btn-sm btn-outline-light" onclick="shareGroup('${group.group_name}', '${group.subgroup_name || ''}')">
+                                    <i class="fas fa-share-alt"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-light" onclick="toggleGroupDetails('my-group-${group.group_name}-${group.subgroup_name || 'main'}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body" id="my-group-${group.group_name}-${group.subgroup_name || 'main'}" style="display: none;">
+                        <div class="group-details">
+                            <h6><i class="fas fa-users"></i> Aliases in this group (${group.alias_count})</h6>
+                            <div class="aliases-list">
+                                ${group.aliases.map(alias => `
+                                    <div class="alias-item">
+                                        <img src="${alias.avatar_url}" alt="${alias.name}" class="alias-avatar" onerror="this.src='https://via.placeholder.com/32'">
+                                        <div>
+                                            <strong>${alias.name}</strong>
+                                            <small class="text-muted d-block">${alias.trigger}</small>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            
+                            <h6 class="mt-4"><i class="fas fa-share-alt"></i> Shared with (${group.shared_users.length})</h6>
+                            <div class="shared-users">
+                                ${group.shared_users.length > 0 ? group.shared_users.map(user => `
+                                    <div class="shared-user">
+                                        <strong>User ${user.user_id}</strong>
+                                        <span class="badge bg-${user.permission_level === 'manager' ? 'warning' : 'info'} ms-1">
+                                            ${user.permission_level}
+                                        </span>
+                                        <button class="btn btn-xs btn-outline-danger ms-1" onclick="removeUserPermission('${group.group_name}', '${group.subgroup_name || ''}', '${user.user_id}')">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                `).join('') : '<p class="text-muted">Not shared with anyone yet</p>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = groupsHtml;
+        }
+
+        // Display groups shared with user
+        function displaySharedGroups(groups) {
+            const container = document.getElementById('shared-groups-container');
+            
+            if (groups.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-share-alt fa-3x mb-3"></i>
+                        <h5>No Shared Groups</h5>
+                        <p>No one has shared any character groups with you yet.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const groupsHtml = groups.map(group => `
+                <div class="group-card ${group.permission_level === 'manager' ? 'manager-group' : 'speaker-group'}">
+                    <div class="card-header bg-${group.permission_level === 'manager' ? 'warning' : 'info'} text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-folder-open"></i>
+                                <strong>${group.group_name}</strong>
+                                ${group.subgroup_name ? `<small>/ ${group.subgroup_name}</small>` : ''}
+                                <small class="ms-2">by User ${group.owner_id}</small>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="alias-count">${group.alias_count} aliases</span>
+                                <span class="permission-badge badge bg-light text-dark">${group.permission_level}</span>
+                                <button class="btn btn-sm btn-outline-light" onclick="toggleGroupDetails('shared-group-${group.group_name}-${group.subgroup_name || 'main'}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body" id="shared-group-${group.group_name}-${group.subgroup_name || 'main'}" style="display: none;">
+                        <div class="group-details">
+                            <h6><i class="fas fa-users"></i> Aliases in this group (${group.alias_count})</h6>
+                            <div class="aliases-list">
+                                ${group.aliases.map(alias => `
+                                    <div class="alias-item">
+                                        <img src="${alias.avatar_url}" alt="${alias.name}" class="alias-avatar" onerror="this.src='https://via.placeholder.com/32'">
+                                        <div>
+                                            <strong>${alias.name}</strong>
+                                            <small class="text-muted d-block">${alias.trigger}</small>
+                                            <small class="text-muted">by User ${alias.user_id}</small>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = groupsHtml;
+        }
+
+        // Toggle group details visibility
+        function toggleGroupDetails(groupId) {
+            const details = document.getElementById(groupId);
+            const isVisible = details.style.display !== 'none';
+            details.style.display = isVisible ? 'none' : 'block';
+        }
+
+        // Share group function
+        function shareGroup(groupName, subgroupName) {
+            // Redirect to aliases page with share modal
+            window.location.href = `/web/aliases?share=${encodeURIComponent(groupName)}&subgroup=${encodeURIComponent(subgroupName || '')}`;
+        }
+
+        // Remove user permission
+        function removeUserPermission(groupName, subgroupName, userId) {
+            if (!confirm(`Remove access for User ${userId}?`)) return;
+
+            fetch(`/web/api/groups/${encodeURIComponent(groupName)}/permissions/remove`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    user_id: userId,
+                    subgroup_name: subgroupName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Permission removed successfully', 'success');
+                    loadMyGroups(); // Reload to reflect changes
+                } else {
+                    showNotification(`Failed to remove permission: ${data.error}`, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error removing permission:', error);
+                showNotification('Failed to remove permission', 'danger');
+            });
+        }
+
+        // Create new group
+        function createNewGroup() {
+            window.location.href = '/web/aliases';
+        }
+
+        // Show notification
+        function showNotification(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    </script>
+{% endblock %}

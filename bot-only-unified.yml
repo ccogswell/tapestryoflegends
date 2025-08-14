@@ -1,0 +1,53 @@
+services:
+  # Shared PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: shared-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=tapestryoflegends
+      - POSTGRES_USER=${DB_USER:-admin}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - shared-network
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d tapestryoflegends"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Tapestry of Legends Bot (Discord Bot + Web Interface)
+  tapestryoflegends:
+    build: ./tapestryoflegends
+    container_name: tapestryoflegends
+    restart: unless-stopped
+    environment:
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - DATABASE_URL=postgresql://${DB_USER:-admin}:${DB_PASSWORD}@postgres:5432/tapestryoflegends
+      - SESSION_SECRET=${SESSION_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-${SESSION_SECRET}}
+      - DOMAIN_NAME=${DOMAIN_NAME}
+      - FLASK_ENV=production
+    ports:
+      - "5001:5000"
+    networks:
+      - shared-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+
+networks:
+  shared-network:
+    driver: bridge

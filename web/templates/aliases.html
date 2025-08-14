@@ -1,0 +1,2213 @@
+{% extends "base.html" %}
+
+{% block title %}Aliases - Quest Keeper{% endblock %}
+
+{% block content %}
+<style>
+.btn-xs {
+    --bs-btn-padding-y: 0.125rem;
+    --bs-btn-padding-x: 0.25rem;
+    --bs-btn-font-size: 0.75rem;
+    line-height: 1;
+}
+
+.hover-highlight:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.1) !important;
+}
+
+.btn-xs:hover {
+    transform: scale(1.1);
+    transition: transform 0.1s ease;
+}
+
+.alias-group .btn-xs {
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.alias-group:hover .btn-xs,
+.list-group-item:hover .btn-xs {
+    opacity: 1;
+}
+
+.subgroup-create-form {
+    border-radius: 0.375rem;
+    border-left: 4px solid #28a745 !important;
+}
+
+.subgroup-create-form input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+    border-color: #28a745;
+}
+
+.clickable-folder:hover {
+    color: #0d6efd !important;
+    text-decoration: underline !important;
+}
+
+.group-permissions-view {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+}
+</style>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-mask"></i> Your Aliases</h1>
+        <div>
+            <button class="btn btn-primary me-2" onclick="showInlineCreateForm()">
+                <i class="fas fa-plus"></i> Create Alias
+            </button>
+            <span class="badge bg-secondary">{{ aliases|length }} Aliases</span>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Left Panel - Alias Groups/Folders -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5><i class="fas fa-folder"></i> Alias Groups</h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="showCreateGroupForm()">
+                            <i class="fas fa-plus"></i> Group
+                        </button>
+                    </div>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" id="alias-search" placeholder="Search by name, race, class, group, tags..." onkeyup="searchAliases()">
+                        <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="create-group-form" class="p-3 border-bottom" style="display: none;">
+                        <form id="new-group-form">
+                            <div class="mb-2">
+                                <input type="text" class="form-control form-control-sm" id="new-group-name" placeholder="Enter group name" required>
+                            </div>
+                            <div class="d-flex gap-1">
+                                <button type="submit" class="btn btn-sm btn-primary flex-fill">
+                                    <i class="fas fa-plus"></i> Create
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="cancelCreateGroup()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div id="alias-groups" class="list-group list-group-flush">
+                        <!-- Groups will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Panel - Alias Profile -->
+        <div class="col-md-8">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-user-circle"></i> Alias Profile</h5>
+                    <div class="d-flex gap-2">
+                        <a href="/web/bulk-manage" class="btn btn-sm btn-outline-info" title="Bulk manage aliases with table view">
+                            <i class="fas fa-table"></i> Bulk Manage
+                        </a>
+                        <button class="btn btn-sm btn-outline-warning" onclick="toggleFavorite()" id="favorite-alias-btn" disabled>
+                            <i class="fas fa-star" id="favorite-icon"></i> <span id="favorite-text">Favorite</span>
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="editSelectedAlias()" id="edit-alias-btn" disabled>
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCurrentAlias()" id="delete-alias-btn" disabled>
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="alias-profile-content">
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-mouse-pointer fa-3x mb-3"></i>
+                            <p>Select an alias from the left panel to view its profile</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Alias Modal -->
+<div class="modal fade" id="createAliasModal" tabindex="-1" aria-labelledby="createAliasModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createAliasModalLabel">Create New Alias</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="create-alias-form">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="alias-name" class="form-label">Alias Name *</label>
+                                <input type="text" class="form-control" id="alias-name" name="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="alias-trigger" class="form-label">Trigger Pattern *</label>
+                                <input type="text" class="form-control" id="alias-trigger" name="trigger" placeholder="e.g., char:" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="alias-group" class="form-label">Group/Campaign</label>
+                                <input type="text" class="form-control" id="alias-group" name="group_name" placeholder="Optional group name">
+                            </div>
+                            <div class="mb-3">
+                                <label for="alias-tags" class="form-label">Tags</label>
+                                <input type="text" class="form-control" id="alias-tags" name="tags" placeholder="e.g., wizard, villain, npc">
+                                <div class="form-text">Comma-separated tags for organizing your aliases</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="alias-class" class="form-label">Class</label>
+                                <input type="text" class="form-control" id="alias-class" name="character_class" placeholder="e.g., Wizard">
+                            </div>
+                            <div class="mb-3">
+                                <label for="alias-race" class="form-label">Race</label>
+                                <input type="text" class="form-control" id="alias-race" name="race" placeholder="e.g., Human">
+                            </div>
+                            <div class="mb-3">
+                                <label for="alias-avatar" class="form-label">Avatar Upload</label>
+                                <input type="file" class="form-control" id="alias-avatar" name="avatar" accept="image/*">
+                                <div class="form-text">Upload an image file for this alias</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="alias-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="alias-description" name="description" rows="3" placeholder="Character description..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Alias</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Alias Modal -->
+<div class="modal fade" id="editAliasModal" tabindex="-1" aria-labelledby="editAliasModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editAliasModalLabel">Edit Alias</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="edit-alias-form">
+                <input type="hidden" id="edit-alias-id" name="alias_id">
+                <div class="modal-body">
+                    <!-- Same form fields as create modal -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-alias-name" class="form-label">Alias Name *</label>
+                                <input type="text" class="form-control" id="edit-alias-name" name="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="edit-alias-trigger" class="form-label">Trigger Pattern *</label>
+                                <input type="text" class="form-control" id="edit-alias-trigger" name="trigger" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="edit-alias-group" class="form-label">Group/Campaign</label>
+                                <input type="text" class="form-control" id="edit-alias-group" name="group_name">
+                            </div>
+                            <div class="mb-3">
+                                <label for="edit-alias-tags" class="form-label">Tags</label>
+                                <input type="text" class="form-control" id="edit-alias-tags" name="tags" placeholder="e.g., wizard, villain, npc">
+                                <div class="form-text">Comma-separated tags for organizing your aliases</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-alias-class" class="form-label">Class</label>
+                                <input type="text" class="form-control" id="edit-alias-class" name="character_class">
+                            </div>
+                            <div class="mb-3">
+                                <label for="edit-alias-race" class="form-label">Race</label>
+                                <input type="text" class="form-control" id="edit-alias-race" name="race">
+                            </div>
+                            <div class="mb-3">
+                                <label for="edit-alias-avatar" class="form-label">Avatar Upload</label>
+                                <input type="file" class="form-control" id="edit-alias-avatar" name="avatar" accept="image/*">
+                                <div class="form-text">Upload a new image or leave blank to keep current</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-alias-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="edit-alias-description" name="description" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Store aliases data for JavaScript
+const aliasesData = {{ aliases|tojson }};
+const emptySubgroupsData = {{ empty_subgroups|tojson }};
+let currentSelectedAlias = null;
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    renderAliasGroups();
+    initializeDragAndDrop();
+    initializeForms();
+});
+
+// Group aliases by group_name and subgroup
+function groupAliases() {
+    const groups = {};
+    
+    aliasesData.forEach(alias => {
+        const originalGroupName = alias.group_name || 'Ungrouped';
+        const groupNameKey = originalGroupName.toLowerCase();
+        
+        if (!groups[groupNameKey]) {
+            groups[groupNameKey] = {
+                displayName: originalGroupName, // Store original case for display
+                aliases: [],
+                subgroups: {}
+            };
+        }
+        
+        if (alias.subgroup) {
+            if (!groups[groupNameKey].subgroups[alias.subgroup]) {
+                groups[groupNameKey].subgroups[alias.subgroup] = [];
+            }
+            groups[groupNameKey].subgroups[alias.subgroup].push(alias);
+        } else {
+            groups[groupNameKey].aliases.push(alias);
+        }
+    });
+    
+    // Add empty subgroups from backend data
+    if (emptySubgroupsData) {
+        Object.keys(emptySubgroupsData).forEach(groupKey => {
+            if (!groups[groupKey]) {
+                // Create the group if it doesn't exist
+                const displayName = emptySubgroupsData[groupKey][0] ? 
+                    // Try to get original case from existing aliases
+                    aliasesData.find(a => (a.group_name || 'Ungrouped').toLowerCase() === groupKey)?.group_name || 
+                    groupKey.charAt(0).toUpperCase() + groupKey.slice(1) : groupKey;
+                groups[groupKey] = {
+                    displayName: displayName,
+                    aliases: [],
+                    subgroups: {}
+                };
+            }
+            
+            emptySubgroupsData[groupKey].forEach(subgroupName => {
+                if (!groups[groupKey].subgroups[subgroupName]) {
+                    groups[groupKey].subgroups[subgroupName] = [];
+                }
+            });
+        });
+    }
+    
+    return groups;
+}
+
+// Render alias groups in left panel
+function renderAliasGroups() {
+    const groupsContainer = document.getElementById('alias-groups');
+    const groups = groupAliases();
+    
+    groupsContainer.innerHTML = '';
+    
+    Object.keys(groups).sort().forEach(groupNameKey => {
+        const groupName = groups[groupNameKey].displayName;
+        const group = groups[groupNameKey];
+        const totalAliases = group.aliases.length + Object.values(group.subgroups).flat().length;
+        
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'alias-group mb-2';
+        
+        let groupHTML = `
+            <div class="list-group-item list-group-item-action p-2 bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <strong class="clickable-folder" onclick="showGroupPermissions('${groupName}', '')" style="cursor: pointer; text-decoration: none;">
+                        <i class="fas fa-folder-open"></i> ${groupName}
+                    </strong>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-xs btn-outline-success p-1" onclick="showCreateSubgroupForm('${groupName}')" title="Add subgroup to ${groupName}">
+                            <i class="fas fa-folder-plus" style="font-size: 10px;"></i>
+                        </button>
+                        <button class="btn btn-xs btn-outline-primary p-1" onclick="createAliasInGroup('${groupName}')" title="Add character to ${groupName}">
+                            <i class="fas fa-user-plus" style="font-size: 10px;"></i>
+                        </button>
+                        <button class="btn btn-xs btn-outline-warning p-1" onclick="shareGroup('${groupName}')" title="Share ${groupName} with others">
+                            <i class="fas fa-share-alt" style="font-size: 10px;"></i>
+                        </button>
+                        <small class="text-muted">${totalAliases}</small>
+                    </div>
+                </div>
+            </div>
+            <div class="alias-list" data-group="${groupName}">
+        `;
+        
+        // Add direct aliases (no subgroup)
+        group.aliases.forEach(alias => {
+            groupHTML += renderAliasItem(alias);
+        });
+        
+        // If main group has no direct aliases but has subgroups, show drop zone
+        if (group.aliases.length === 0 && Object.keys(group.subgroups).length > 0) {
+            groupHTML += `
+                <div class="list-group-item text-muted text-center py-2 alias-list" 
+                     data-group="${groupName}"
+                     style="font-style: italic; border: 2px dashed #dee2e6; margin: 4px;">
+                    Drop aliases here or click + to add to main folder
+                </div>
+            `;
+        }
+        
+        // If group is completely empty (no aliases and no subgroups), show different message
+        if (group.aliases.length === 0 && Object.keys(group.subgroups).length === 0) {
+            groupHTML += `
+                <div class="list-group-item text-muted text-center py-3 alias-list" 
+                     data-group="${groupName}"
+                     style="font-style: italic; border: 2px dashed #dee2e6; margin: 4px;">
+                    <i class="fas fa-folder-open text-muted mb-2"></i><br>
+                    Drop aliases here or click + to add
+                </div>
+            `;
+        }
+        
+        // Add subgroups
+        Object.keys(group.subgroups).sort().forEach(subgroupName => {
+            groupHTML += `
+                <div class="list-group-item p-2 bg-light border-start border-3 border-info ms-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="clickable-folder" onclick="showGroupPermissions('${groupName}', '${subgroupName}')" style="cursor: pointer; text-decoration: none;">
+                            <i class="fas fa-folder"></i> ${subgroupName}
+                        </small>
+                        <div class="d-flex align-items-center gap-1">
+                            <button class="btn btn-xs btn-outline-primary p-1" onclick="createAliasInGroup('${groupName}', '${subgroupName}')" title="Add character to ${subgroupName}">
+                                <i class="fas fa-user-plus" style="font-size: 10px;"></i>
+                            </button>
+                            <button class="btn btn-xs btn-outline-warning p-1" onclick="shareGroup('${groupName}', '${subgroupName}')" title="Share ${subgroupName} with others">
+                                <i class="fas fa-share-alt" style="font-size: 10px;"></i>
+                            </button>
+                            <small class="text-muted">${group.subgroups[subgroupName].length}</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add aliases in this subgroup
+            group.subgroups[subgroupName].forEach(alias => {
+                groupHTML += renderAliasItem(alias, true); // true for subgroup styling
+            });
+            
+            // If subgroup is empty, show drop zone
+            if (group.subgroups[subgroupName].length === 0) {
+                groupHTML += `
+                    <div class="list-group-item text-muted text-center py-2 ms-2 alias-list" 
+                         data-group="${groupName}" data-subgroup="${subgroupName}"
+                         style="font-style: italic; border-left: 3px solid #6c757d;">
+                        Drop aliases here or click + to add
+                    </div>
+                `;
+            }
+        });
+        
+        // Close the alias-list div
+        groupHTML += `</div>`;
+        
+        groupHTML += '</div>';
+        groupDiv.innerHTML = groupHTML;
+        groupsContainer.appendChild(groupDiv);
+    });
+}
+
+// Select and display alias profile
+function selectAlias(aliasId) {
+    const alias = aliasesData.find(a => a.id === aliasId);
+    if (!alias) return;
+    
+    currentSelectedAlias = alias;
+    
+    // Update UI selection
+    document.querySelectorAll('.alias-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    document.querySelector(`[data-alias-id="${aliasId}"]`).classList.add('active');
+    
+    // Enable edit/delete/favorite buttons
+    document.getElementById('edit-alias-btn').disabled = false;
+    document.getElementById('delete-alias-btn').disabled = false;
+    document.getElementById('favorite-alias-btn').disabled = false;
+    
+    // Update favorite button state
+    updateFavoriteButton(alias.is_favorite);
+    
+    // Display alias profile
+    displayAliasProfile(alias);
+}
+
+// Display alias profile in right panel (read-only view)
+function displayAliasProfile(alias) {
+    const profileContent = document.getElementById('alias-profile-content');
+    profileContent.innerHTML = `
+        <div class="row">
+            <div class="col-md-3 text-center">
+                ${alias.avatar_url ? 
+                    `<img src="${alias.avatar_url}" class="rounded-circle mb-3" style="width: 120px; height: 120px;">` :
+                    `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mb-3 mx-auto" style="width: 120px; height: 120px;">
+                        <i class="fas fa-user text-white fa-3x"></i>
+                    </div>`
+                }
+            </div>
+            <div class="col-md-9">
+                <h3>${alias.character_name}</h3>
+                <p class="text-muted mb-3">${alias.guild_name}</p>
+                
+                <div class="row mb-3">
+                    <div class="col-sm-6">
+                        <strong>Trigger:</strong> <code>${alias.trigger_text}</code>
+                    </div>
+                    <div class="col-sm-6">
+                        <strong>Messages:</strong> ${alias.message_count || 0}
+                    </div>
+                </div>
+                
+                ${alias.character_class || alias.character_race ? `
+                <div class="row mb-3">
+                    ${alias.character_class ? `<div class="col-sm-6"><strong>Class:</strong> ${alias.character_class}</div>` : ''}
+                    ${alias.character_race ? `<div class="col-sm-6"><strong>Race:</strong> ${alias.character_race}</div>` : ''}
+                </div>
+                ` : ''}
+                
+                ${alias.pronouns || alias.age || alias.alignment ? `
+                <div class="row mb-3">
+                    ${alias.pronouns ? `<div class="col-sm-4"><strong>Pronouns:</strong> ${alias.pronouns}</div>` : ''}
+                    ${alias.age ? `<div class="col-sm-4"><strong>Age:</strong> ${alias.age}</div>` : ''}
+                    ${alias.alignment ? `<div class="col-sm-4"><strong>Alignment:</strong> ${alias.alignment}</div>` : ''}
+                </div>
+                ` : ''}
+                
+                ${alias.character_description ? `
+                <div class="mb-3">
+                    <strong>Description:</strong>
+                    <p class="text-muted">${alias.character_description}</p>
+                </div>
+                ` : ''}
+                
+                ${alias.personality ? `
+                <div class="mb-3">
+                    <strong>Personality:</strong>
+                    <p class="text-muted">${alias.personality}</p>
+                </div>
+                ` : ''}
+                
+                ${alias.backstory ? `
+                <div class="mb-3">
+                    <strong>Backstory:</strong>
+                    <p class="text-muted">${alias.backstory}</p>
+                </div>
+                ` : ''}
+                
+                ${alias.goals ? `
+                <div class="mb-3">
+                    <strong>Goals:</strong>
+                    <p class="text-muted">${alias.goals}</p>
+                </div>
+                ` : ''}
+                
+                ${alias.notes ? `
+                <div class="mb-3">
+                    <strong>Notes:</strong>
+                    <p class="text-muted">${alias.notes}</p>
+                </div>
+                ` : ''}
+                
+                ${alias.dndbeyond_url ? `
+                <div class="mb-3">
+                    <strong>D&D Beyond:</strong> <a href="${alias.dndbeyond_url}" target="_blank" class="text-primary">View Character Sheet</a>
+                </div>
+                ` : ''}
+                
+                ${alias.group_name ? `
+                <div class="mb-3">
+                    <strong>Group:</strong> <span class="badge bg-info">${alias.group_name}</span>
+                    ${alias.subgroup ? ` <span class="badge bg-secondary ms-1">${alias.subgroup}</span>` : ''}
+                </div>
+                ` : ''}
+                
+                ${alias.tags && alias.tags.length > 0 ? `
+                <div class="mb-3">
+                    <strong>Tags:</strong> 
+                    ${alias.tags.map(tag => `<span class="badge bg-primary me-1">${tag.trim()}</span>`).join('')}
+                </div>
+                ` : ''}
+                
+                <div class="mt-4">
+                    <small class="text-muted">
+                        <i class="fas fa-calendar"></i> Created ${alias.created_at || 'Unknown'}
+                        ${alias.last_used ? ` • Last used ${alias.last_used}` : ' • Never used'}
+                    </small>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Display alias profile in edit mode
+function displayAliasEditForm(alias) {
+    const profileContent = document.getElementById('alias-profile-content');
+    profileContent.innerHTML = `
+        <form id="alias-edit-form" onsubmit="saveAliasChanges(event)">
+            <div class="row">
+                <div class="col-md-3 text-center">
+                    ${alias.avatar_url ? 
+                        `<img id="avatar-preview" src="${alias.avatar_url}" class="rounded-circle mb-3" style="width: 120px; height: 120px;">` :
+                        `<div id="avatar-preview" class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mb-3 mx-auto" style="width: 120px; height: 120px;">
+                            <i class="fas fa-user text-white fa-3x"></i>
+                        </div>`
+                    }
+                    <div class="mb-3">
+                        <input type="file" id="avatar-upload" class="form-control form-control-sm" accept="image/*" onchange="previewAvatar(this)" style="display: none;">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('avatar-upload').click()">
+                            <i class="fas fa-camera"></i> Change Avatar
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-9">
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Name</strong></label>
+                        <input type="text" class="form-control" name="character_name" value="${alias.character_name || ''}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Trigger</strong></label>
+                        <input type="text" class="form-control" name="trigger_text" value="${alias.trigger_text || ''}" required>
+                        <small class="form-text text-muted">How to activate this alias (e.g., "k:", "[text]")</small>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-sm-6">
+                            <label class="form-label"><strong>Class</strong></label>
+                            <input type="text" class="form-control" name="character_class" value="${alias.character_class || ''}">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label"><strong>Race</strong></label>
+                            <input type="text" class="form-control" name="character_race" value="${alias.character_race || ''}">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-sm-4">
+                            <label class="form-label"><strong>Pronouns</strong></label>
+                            <input type="text" class="form-control" name="pronouns" value="${alias.pronouns || ''}">
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label"><strong>Age</strong></label>
+                            <input type="text" class="form-control" name="age" value="${alias.age || ''}">
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label"><strong>Alignment</strong></label>
+                            <input type="text" class="form-control" name="alignment" value="${alias.alignment || ''}">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Description</strong></label>
+                        <textarea class="form-control" name="character_description" rows="3">${alias.character_description || ''}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Personality</strong></label>
+                        <textarea class="form-control" name="personality" rows="3">${alias.personality || ''}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Backstory</strong></label>
+                        <textarea class="form-control" name="backstory" rows="4">${alias.backstory || ''}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Goals</strong></label>
+                        <textarea class="form-control" name="goals" rows="3">${alias.goals || ''}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Notes</strong></label>
+                        <textarea class="form-control" name="notes" rows="3">${alias.notes || ''}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Group/Campaign</strong></label>
+                        <input type="text" class="form-control" name="group_name" value="${alias.group_name || ''}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Subgroup</strong></label>
+                        <input type="text" class="form-control" name="subgroup" value="${alias.subgroup || ''}" placeholder="Optional subgroup within campaign">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Tags</strong></label>
+                        <input type="text" class="form-control" name="tags" value="${alias.tags_raw || ''}" placeholder="e.g., wizard, villain, npc">
+                        <small class="form-text text-muted">Comma-separated tags for organizing your aliases</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>D&D Beyond URL</strong></label>
+                        <input type="url" class="form-control" name="dndbeyond_url" value="${alias.dndbeyond_url || ''}" placeholder="https://ddb.ac/characters/...">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                        <button type="button" class="btn btn-secondary me-2" onclick="cancelEdit()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="confirmDelete(${alias.id})">
+                            <i class="fas fa-trash"></i> Delete Alias
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4 pt-3 border-top">
+                        <small class="text-muted">
+                            <i class="fas fa-calendar"></i> Created ${alias.created_at || 'Unknown'} • 
+                            <i class="fas fa-comment"></i> ${alias.message_count || 0} messages • 
+                            ${alias.last_used ? `Last used ${alias.last_used}` : 'Never used'}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </form>
+    `;
+    
+    // Store the current alias ID for form submission
+    document.getElementById('alias-edit-form').setAttribute('data-alias-id', alias.id);
+}
+
+// Avatar preview function
+function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('avatar-preview');
+            preview.innerHTML = `<img src="${e.target.result}" class="rounded-circle mb-3" style="width: 120px; height: 120px;">`;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// Save alias changes
+async function saveAliasChanges(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const aliasId = form.getAttribute('data-alias-id');
+    const formData = new FormData(form);
+    
+    // Convert FormData to JSON
+    const data = {};
+    formData.forEach((value, key) => {
+        data[key] = value;
+    });
+    
+    // Handle avatar upload if present
+    const avatarFile = document.getElementById('avatar-upload').files[0];
+    if (avatarFile) {
+        try {
+            // Upload avatar first
+            const uploadFormData = new FormData();
+            uploadFormData.append('avatar', avatarFile);
+            
+            const uploadResponse = await fetch('/web/api/aliases/upload-avatar', {
+                method: 'POST',
+                body: uploadFormData
+            });
+            
+            if (uploadResponse.ok) {
+                const uploadResult = await uploadResponse.json();
+                data.avatar_url = uploadResult.avatar_url;
+            }
+        } catch (error) {
+            console.error('Avatar upload failed:', error);
+        }
+    }
+    
+    try {
+        const response = await fetch(`/web/api/aliases/${aliasId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            const updatedAlias = await response.json();
+            
+            // Update local data
+            const aliasIndex = aliasesData.findIndex(a => a.id === parseInt(aliasId));
+            if (aliasIndex !== -1) {
+                aliasesData[aliasIndex] = updatedAlias;
+            }
+            
+            // Refresh the interface
+            renderAliasGroups();
+            displayAliasProfile(updatedAlias);
+            
+            // Show success message
+            showNotification('Alias updated successfully!', 'success');
+        } else {
+            const error = await response.json();
+            showNotification(error.error || 'Failed to update alias', 'danger');
+        }
+    } catch (error) {
+        console.error('Save failed:', error);
+        showNotification('Failed to save changes', 'danger');
+    }
+}
+
+// Edit selected alias
+function editSelectedAlias() {
+    if (currentSelectedAlias) {
+        displayAliasEditForm(currentSelectedAlias);
+    }
+}
+
+// Cancel edit (reload original profile)
+function cancelEdit() {
+    if (currentSelectedAlias) {
+        displayAliasProfile(currentSelectedAlias);
+    }
+}
+
+// Update favorite button state
+function updateFavoriteButton(isFavorite) {
+    const favoriteIcon = document.getElementById('favorite-icon');
+    const favoriteText = document.getElementById('favorite-text');
+    const favoriteBtn = document.getElementById('favorite-alias-btn');
+    
+    if (isFavorite) {
+        favoriteIcon.classList.remove('far');
+        favoriteIcon.classList.add('fas');
+        favoriteText.textContent = 'Unfavorite';
+        favoriteBtn.classList.remove('btn-outline-warning');
+        favoriteBtn.classList.add('btn-warning');
+    } else {
+        favoriteIcon.classList.remove('fas');
+        favoriteIcon.classList.add('far');
+        favoriteText.textContent = 'Favorite';
+        favoriteBtn.classList.remove('btn-warning');
+        favoriteBtn.classList.add('btn-outline-warning');
+    }
+}
+
+// Toggle favorite status
+async function toggleFavorite() {
+    if (!currentSelectedAlias) return;
+    
+    try {
+        const response = await fetch(`/web/api/aliases/${currentSelectedAlias.id}/favorite`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            currentSelectedAlias.is_favorite = result.is_favorite;
+            updateFavoriteButton(result.is_favorite);
+            renderAliasGroups(); // Refresh the list to show/hide stars
+            showNotification(`Alias ${result.is_favorite ? 'added to' : 'removed from'} favorites`, 'success');
+        } else {
+            showNotification('Failed to update favorite status', 'danger');
+        }
+    } catch (error) {
+        console.error('Error toggling favorite:', error);
+        showNotification('Failed to update favorite status', 'danger');
+    }
+}
+
+// Quick toggle favorite from list view
+async function quickToggleFavorite(aliasId) {
+    const alias = aliasesData.find(a => a.id === aliasId);
+    if (!alias) return;
+    
+    try {
+        const response = await fetch(`/web/api/aliases/${aliasId}/favorite`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            alias.is_favorite = result.is_favorite;
+            renderAliasGroups(); // Refresh the list
+            if (currentSelectedAlias && currentSelectedAlias.id === aliasId) {
+                currentSelectedAlias.is_favorite = result.is_favorite;
+                updateFavoriteButton(result.is_favorite);
+            }
+            showNotification(`${alias.character_name} ${result.is_favorite ? 'favorited' : 'unfavorited'}`, 'success');
+        }
+    } catch (error) {
+        console.error('Error toggling favorite:', error);
+        showNotification('Failed to update favorite status', 'danger');
+    }
+}
+
+// Show inline creation form
+function showInlineCreateForm() {
+    const profileContent = document.getElementById('alias-profile-content');
+    profileContent.innerHTML = `
+        <form id="inline-create-form">
+            <h4 class="mb-4">Create New Alias</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="inline-alias-name" class="form-label">Alias Name *</label>
+                        <input type="text" class="form-control" id="inline-alias-name" name="character_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inline-alias-trigger" class="form-label">Trigger Pattern *</label>
+                        <input type="text" class="form-control" id="inline-alias-trigger" name="trigger_text" placeholder="e.g., char:" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inline-alias-group" class="form-label">Group/Campaign</label>
+                        <input type="text" class="form-control" id="inline-alias-group" name="group_name" placeholder="Optional group name">
+                    </div>
+                    <div class="mb-3">
+                        <label for="inline-alias-tags" class="form-label">Tags</label>
+                        <input type="text" class="form-control" id="inline-alias-tags" name="tags" placeholder="e.g., wizard, villain, npc">
+                        <div class="form-text">Comma-separated tags</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inline-alias-subgroup" class="form-label">Subgroup</label>
+                        <input type="text" class="form-control" id="inline-alias-subgroup" name="subgroup" placeholder="Optional subgroup within campaign">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="inline-alias-class" class="form-label">Class</label>
+                        <input type="text" class="form-control" id="inline-alias-class" name="character_class" placeholder="e.g., Wizard 5">
+                    </div>
+                    <div class="mb-3">
+                        <label for="inline-alias-race" class="form-label">Race</label>
+                        <input type="text" class="form-control" id="inline-alias-race" name="character_race" placeholder="e.g., Human">
+                    </div>
+                    <div class="mb-3">
+                        <label for="inline-alias-pronouns" class="form-label">Pronouns</label>
+                        <input type="text" class="form-control" id="inline-alias-pronouns" name="pronouns" placeholder="e.g., they/them">
+                    </div>
+                    <div class="mb-3">
+                        <label for="inline-alias-age" class="form-label">Age</label>
+                        <input type="text" class="form-control" id="inline-alias-age" name="age" placeholder="e.g., 25">
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12">
+                    <div class="mb-3">
+                        <label for="inline-alias-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="inline-alias-description" name="character_description" rows="3" placeholder="Character description..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inline-alias-personality" class="form-label">Personality</label>
+                        <textarea class="form-control" id="inline-alias-personality" name="personality" rows="2" placeholder="Personality traits..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inline-alias-backstory" class="form-label">Backstory</label>
+                        <textarea class="form-control" id="inline-alias-backstory" name="backstory" rows="3" placeholder="Character backstory..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-secondary" onclick="cancelInlineCreate()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Alias</button>
+            </div>
+        </form>
+    `;
+    
+    // Add form submission handler
+    document.getElementById('inline-create-form').addEventListener('submit', handleInlineCreate);
+}
+
+// Cancel inline creation
+function cancelInlineCreate() {
+    const profileContent = document.getElementById('alias-profile-content');
+    profileContent.innerHTML = `
+        <div class="text-center text-muted py-5">
+            <i class="fas fa-mouse-pointer fa-3x mb-3"></i>
+            <p>Select an alias from the left panel to view its profile</p>
+        </div>
+    `;
+}
+
+// Handle inline creation form submission
+async function handleInlineCreate(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    
+    try {
+        const response = await fetch('/web/api/aliases/create', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showNotification('Alias created successfully!', 'success');
+            
+            // Add new alias to local data and refresh
+            aliasesData.push({
+                id: result.id,
+                character_name: formData.get('character_name'),
+                trigger_text: formData.get('trigger_text'),
+                character_class: formData.get('character_class') || null,
+                character_race: formData.get('character_race') || null,
+                character_description: formData.get('character_description') || null,
+                personality: formData.get('personality') || null,
+                backstory: formData.get('backstory') || null,
+                tags: formData.get('tags') || null,
+                pronouns: formData.get('pronouns') || null,
+                age: formData.get('age') || null,
+                group_name: formData.get('group_name') || null,
+                subgroup: formData.get('subgroup') || null,
+                is_favorite: false,
+                message_count: 0,
+                avatar_url: null,
+                created_at: new Date().toISOString().split('T')[0],
+                last_used: null,
+                guild_name: 'Current Guild'
+            });
+            
+            renderAliasGroups();
+            cancelInlineCreate();
+        } else {
+            const error = await response.json();
+            showNotification(error.error || 'Failed to create alias', 'danger');
+        }
+    } catch (error) {
+        console.error('Error creating alias:', error);
+        showNotification('Failed to create alias', 'danger');
+    }
+}
+
+// Confirm delete alias
+function confirmDelete(aliasId) {
+    if (confirm('Are you sure you want to delete this alias? This action cannot be undone.')) {
+        deleteAlias(aliasId);
+    }
+}
+
+// Delete alias
+async function deleteAlias(aliasId) {
+    try {
+        const response = await fetch(`/web/api/aliases/${aliasId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            // Remove from local data
+            const aliasIndex = aliasesData.findIndex(a => a.id === parseInt(aliasId));
+            if (aliasIndex !== -1) {
+                aliasesData.splice(aliasIndex, 1);
+            }
+            
+            // Refresh interface
+            renderAliasGroups();
+            
+            // Clear profile panel
+            document.getElementById('alias-profile-content').innerHTML = `
+                <div class="text-center text-muted p-5">
+                    <i class="fas fa-users fa-3x mb-3"></i>
+                    <h5>Select an alias to view details</h5>
+                    <p>Click on any alias from the list to see and edit its profile information.</p>
+                </div>
+            `;
+            
+            showNotification('Alias deleted successfully', 'success');
+        } else {
+            const error = await response.json();
+            showNotification(error.error || 'Failed to delete alias', 'danger');
+        }
+    } catch (error) {
+        console.error('Delete failed:', error);
+        showNotification('Failed to delete alias', 'danger');
+    }
+}
+
+// Show notification
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 3000);
+}
+
+// Search aliases by multiple criteria  
+function searchAliases() {
+    const searchInput = document.getElementById('alias-search');
+    const searchText = searchInput.value.toLowerCase().trim();
+    
+    if (!searchText) {
+        // Show all aliases if search is empty
+        renderAliasGroups();
+        return;
+    }
+    
+    // Filter aliases based on multiple fields
+    const filteredAliases = aliasesData.filter(alias => {
+        const searchFields = [
+            alias.character_name?.toLowerCase() || '',
+            alias.character_race?.toLowerCase() || '',
+            alias.character_class?.toLowerCase() || '',
+            alias.group_name?.toLowerCase() || '',
+            alias.subgroup?.toLowerCase() || '',
+            alias.trigger_text?.toLowerCase() || '',
+            ...(alias.tags || []).map(tag => tag.toLowerCase())
+        ];
+        
+        // Check if any field contains the search text
+        return searchFields.some(field => field.includes(searchText));
+    });
+    
+    // Render filtered results
+    renderFilteredAliases(filteredAliases, searchText);
+}
+
+// Clear search and show all aliases
+function clearSearch() {
+    const searchInput = document.getElementById('alias-search');
+    searchInput.value = '';
+    renderAliasGroups();
+}
+
+// Render filtered aliases
+function renderFilteredAliases(filteredAliases, filterText) {
+    const groupsContainer = document.getElementById('alias-groups');
+    
+    if (filteredAliases.length === 0) {
+        groupsContainer.innerHTML = `
+            <div class="text-center text-muted p-4">
+                <i class="fas fa-search fa-3x mb-3"></i>
+                <h5>No aliases found</h5>
+                <p>No aliases match the tag filter: "${filterText}"</p>
+            </div>
+        `;
+        return;
+    }
+    
+    groupsContainer.innerHTML = `
+        <div class="mb-3">
+            <div class="list-group-item list-group-item-action p-2 bg-info text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <strong><i class="fas fa-search"></i> Search Results: "${filterText}"</strong>
+                    <small>${filteredAliases.length} Found</small>
+                </div>
+            </div>
+            <div class="alias-list">
+                ${filteredAliases.map(alias => renderAliasItem(alias, false)).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// Edit alias quickly from list item
+function editAliasQuick(aliasId) {
+    // First select the alias to load it in the profile panel
+    selectAlias(aliasId);
+    
+    // Wait a moment for the alias to load, then trigger edit mode
+    setTimeout(() => {
+        editSelectedAlias();
+    }, 100);
+}
+
+// Initialize drag and drop functionality
+function initializeDragAndDrop() {
+    // Add drag event listeners to alias items
+    document.addEventListener('dragstart', function(e) {
+        if (e.target.classList.contains('alias-item')) {
+            e.dataTransfer.setData('text/plain', e.target.dataset.aliasId);
+        }
+    });
+    
+    document.addEventListener('dragover', function(e) {
+        e.preventDefault();
+    });
+    
+    document.addEventListener('drop', function(e) {
+        e.preventDefault();
+        if (e.target.classList.contains('alias-list') || e.target.closest('.alias-list')) {
+            const aliasId = e.dataTransfer.getData('text/plain');
+            const dropTarget = e.target.closest('.alias-list') || e.target;
+            const targetGroup = dropTarget.dataset.group;
+            const targetSubgroup = dropTarget.dataset.subgroup || null;
+            moveAliasToGroup(aliasId, targetGroup, targetSubgroup);
+        }
+    });
+}
+
+// Move alias to different group and subgroup
+function moveAliasToGroup(aliasId, targetGroup, targetSubgroup = null) {
+    fetch('/web/api/aliases/move', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            alias_id: aliasId,
+            group_name: targetGroup,
+            subgroup: targetSubgroup
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update local data and re-render
+            const alias = aliasesData.find(a => a.id == aliasId);
+            if (alias) {
+                alias.group_name = targetGroup;
+                alias.subgroup = targetSubgroup;
+                renderAliasGroups();
+            }
+        } else {
+            alert('Failed to move alias: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error moving alias:', error);
+        alert('Failed to move alias');
+    });
+}
+
+// Initialize form handlers
+function initializeForms() {
+    // Create alias form
+    document.getElementById('create-alias-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        createAlias(formData);
+    });
+    
+    // Edit alias form
+    document.getElementById('edit-alias-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        updateAlias(formData);
+    });
+}
+
+// Create new alias
+function createAlias(formData) {
+    fetch('/web/api/aliases/create', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload(); // Refresh page to show new alias
+        } else {
+            alert('Failed to create alias: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error creating alias:', error);
+        alert('Failed to create alias');
+    });
+}
+
+// Update existing alias
+function updateAlias(formData) {
+    fetch('/web/api/aliases/update', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload(); // Refresh page to show updated alias
+        } else {
+            alert('Failed to update alias: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error updating alias:', error);
+        alert('Failed to update alias');
+    });
+}
+
+// Edit current alias
+function editCurrentAlias() {
+    if (!currentSelectedAlias) return;
+    
+    // Populate edit form
+    document.getElementById('edit-alias-id').value = currentSelectedAlias.id;
+    document.getElementById('edit-alias-name').value = currentSelectedAlias.character_name;
+    document.getElementById('edit-alias-trigger').value = currentSelectedAlias.trigger_text;
+    document.getElementById('edit-alias-group').value = currentSelectedAlias.group_name || '';
+    document.getElementById('edit-alias-class').value = currentSelectedAlias.character_class || '';
+    document.getElementById('edit-alias-race').value = currentSelectedAlias.character_race || '';
+    document.getElementById('edit-alias-description').value = currentSelectedAlias.character_description || '';
+    
+    // Show modal
+    new bootstrap.Modal(document.getElementById('editAliasModal')).show();
+}
+
+// Delete current alias
+function deleteCurrentAlias() {
+    if (!currentSelectedAlias) return;
+    
+    if (confirm(`Are you sure you want to delete "${currentSelectedAlias.character_name}"?`)) {
+        fetch('/web/api/aliases/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                alias_id: currentSelectedAlias.id
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload(); // Refresh page
+            } else {
+                alert('Failed to delete alias: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting alias:', error);
+            alert('Failed to delete alias');
+        });
+    }
+}
+
+// Show create group form
+function showCreateGroupForm() {
+    const form = document.getElementById('create-group-form');
+    form.style.display = 'block';
+    document.getElementById('new-group-name').focus();
+}
+
+// Cancel create group
+function cancelCreateGroup() {
+    const form = document.getElementById('create-group-form');
+    form.style.display = 'none';
+    document.getElementById('new-group-name').value = '';
+}
+
+// Handle create group form submission
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('new-group-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const groupName = document.getElementById('new-group-name').value.trim();
+        if (groupName) {
+            // Add empty group to display
+            const groupsContainer = document.getElementById('alias-groups');
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'alias-group mb-2';
+            groupDiv.innerHTML = `
+                <div class="list-group-item list-group-item-action p-2 bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong class="clickable-folder" onclick="showGroupPermissions('${groupName}', '')" style="cursor: pointer; text-decoration: none;">
+                            <i class="fas fa-folder-open"></i> ${groupName}
+                        </strong>
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-xs btn-outline-success p-1" onclick="showCreateSubgroupForm('${groupName}')" title="Add subgroup to ${groupName}">
+                                <i class="fas fa-folder-plus" style="font-size: 10px;"></i>
+                            </button>
+                            <button class="btn btn-xs btn-outline-primary p-1" onclick="createAliasInGroup('${groupName}')" title="Add character to ${groupName}">
+                                <i class="fas fa-user-plus" style="font-size: 10px;"></i>
+                            </button>
+                            <small class="text-muted">0</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="alias-list" data-group="${groupName}">
+                    <div class="list-group-item text-muted text-center py-3">
+                        <i>Drag aliases here to add them to this group</i>
+                    </div>
+                </div>
+            `;
+            groupsContainer.appendChild(groupDiv);
+            cancelCreateGroup();
+        }
+    });
+});
+
+// Show create subgroup form
+function showCreateSubgroupForm(groupName) {
+    // Find the group element to insert the inline form after
+    const groupElements = document.querySelectorAll('.alias-group');
+    let targetGroupElement = null;
+    
+    groupElements.forEach(groupEl => {
+        const groupTitle = groupEl.querySelector('strong');
+        if (groupTitle && groupTitle.textContent.includes(groupName)) {
+            targetGroupElement = groupEl;
+        }
+    });
+    
+    if (!targetGroupElement) return;
+    
+    // Create inline form element
+    const formElement = document.createElement('div');
+    formElement.className = 'subgroup-create-form p-2 bg-light border ms-3 mb-2';
+    formElement.innerHTML = `
+        <form id="inline-subgroup-form">
+            <div class="d-flex gap-2 align-items-center">
+                <i class="fas fa-folder-plus text-success"></i>
+                <input type="text" class="form-control form-control-sm flex-grow-1" id="inline-subgroup-name" placeholder="Subgroup name" required>
+                <button type="submit" class="btn btn-sm btn-success">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="cancelInlineSubgroupForm(this)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </form>
+    `;
+    
+    // Insert at the end of the group but before any existing subgroups
+    const aliasList = targetGroupElement.querySelector('.alias-list');
+    const existingSubgroups = aliasList.querySelectorAll('.list-group-item.bg-light.border-start');
+    
+    if (existingSubgroups.length > 0) {
+        // Insert before the first subgroup
+        aliasList.insertBefore(formElement, existingSubgroups[0]);
+    } else {
+        // No subgroups exist, append at the end
+        aliasList.appendChild(formElement);
+    }
+    
+    // Focus the input
+    formElement.querySelector('#inline-subgroup-name').focus();
+    
+    // Add form submission handler
+    formElement.querySelector('#inline-subgroup-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const subgroupName = formElement.querySelector('#inline-subgroup-name').value.trim();
+        if (subgroupName) {
+            // Create empty subgroup visually
+            createEmptySubgroup(groupName, subgroupName, formElement);
+        }
+    });
+}
+
+// Cancel inline subgroup form
+function cancelInlineSubgroupForm(buttonElement) {
+    const formElement = buttonElement.closest('.subgroup-create-form');
+    formElement.remove();
+}
+
+// Create empty subgroup
+function createEmptySubgroup(groupName, subgroupName, formElement) {
+    // Create subgroup HTML with proper drop zone
+    const subgroupHTML = `
+        <div class="list-group-item p-2 bg-light border-start border-3 border-info ms-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="clickable-folder" onclick="showGroupPermissions('${groupName}', '${subgroupName}')" style="cursor: pointer; text-decoration: none;">
+                    <i class="fas fa-folder"></i> ${subgroupName}
+                </small>
+                <div class="d-flex align-items-center gap-1">
+                    <button class="btn btn-xs btn-outline-primary p-1" onclick="createAliasInGroup('${groupName}', '${subgroupName}')" title="Add character to ${subgroupName}">
+                        <i class="fas fa-user-plus" style="font-size: 10px;"></i>
+                    </button>
+                    <small class="text-muted">0</small>
+                </div>
+            </div>
+        </div>
+        <div class="list-group-item text-muted text-center py-2 ms-2 alias-list" 
+             data-group="${groupName}" data-subgroup="${subgroupName}"
+             style="font-style: italic; border-left: 3px solid #6c757d;">
+            Drop aliases here or click + to add
+        </div>
+    `;
+    
+    // Convert to DOM element
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = subgroupHTML;
+    
+    // Insert the subgroup elements right after the form
+    const parentContainer = formElement.parentNode;
+    const nextSibling = formElement.nextSibling;
+    
+    while (tempDiv.firstChild) {
+        if (nextSibling) {
+            parentContainer.insertBefore(tempDiv.firstChild, nextSibling);
+        } else {
+            parentContainer.appendChild(tempDiv.firstChild);
+        }
+    }
+    
+    // Remove the form
+    formElement.remove();
+    
+    // Save the subgroup to the backend for persistence
+    saveSubgroupToBackend(groupName, subgroupName);
+    
+    // Also update the local data structure to include the empty subgroup
+    updateLocalDataWithSubgroup(groupName, subgroupName);
+    
+    showNotification(`Created empty subgroup "${subgroupName}" in ${groupName}`, 'success');
+}
+
+// Save subgroup to backend for persistence
+async function saveSubgroupToBackend(groupName, subgroupName) {
+    try {
+        const response = await fetch('/web/api/aliases/create-subgroup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                group_name: groupName,
+                subgroup_name: subgroupName
+            })
+        });
+        
+        if (!response.ok) {
+            console.error('Failed to save subgroup:', await response.text());
+        }
+    } catch (error) {
+        console.error('Error saving subgroup:', error);
+    }
+}
+
+// Update local data structure to include empty subgroup for persistence
+function updateLocalDataWithSubgroup(groupName, subgroupName) {
+    // Update the aliasesData to include this subgroup in the grouping logic
+    const groups = groupAliases();
+    const groupNameKey = groupName.toLowerCase();
+    
+    if (groups[groupNameKey]) {
+        if (!groups[groupNameKey].subgroups[subgroupName]) {
+            groups[groupNameKey].subgroups[subgroupName] = [];
+        }
+    }
+    
+    // Update emptySubgroupsData to persist the new subgroup
+    if (!emptySubgroupsData[groupNameKey]) {
+        emptySubgroupsData[groupNameKey] = [];
+    }
+    if (!emptySubgroupsData[groupNameKey].includes(subgroupName)) {
+        emptySubgroupsData[groupNameKey].push(subgroupName);
+    }
+}
+
+
+
+// Create alias in specific group/subgroup
+function createAliasInGroup(groupName, subgroupName = '') {
+    const profileContent = document.getElementById('alias-profile-content');
+    profileContent.innerHTML = `
+        <form id="group-create-form">
+            <h4 class="mb-4">Create Character in ${subgroupName ? `${groupName} → ${subgroupName}` : groupName}</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="group-alias-name" class="form-label">Character Name *</label>
+                        <input type="text" class="form-control" id="group-alias-name" name="character_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="group-alias-trigger" class="form-label">Trigger Pattern *</label>
+                        <input type="text" class="form-control" id="group-alias-trigger" name="trigger_text" placeholder="e.g., char:" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="group-alias-group" class="form-label">Group/Campaign</label>
+                        <input type="text" class="form-control" id="group-alias-group" name="group_name" value="${groupName}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="group-alias-tags" class="form-label">Tags</label>
+                        <input type="text" class="form-control" id="group-alias-tags" name="tags" placeholder="e.g., wizard, villain, npc">
+                        <div class="form-text">Comma-separated tags</div>
+                    </div>
+                    ${subgroupName ? `
+                    <div class="mb-3">
+                        <label for="group-alias-subgroup" class="form-label">Subgroup</label>
+                        <input type="text" class="form-control" id="group-alias-subgroup" name="subgroup" value="${subgroupName}" readonly>
+                    </div>
+                    ` : `
+                    <div class="mb-3">
+                        <label for="group-alias-subgroup" class="form-label">Subgroup (Optional)</label>
+                        <input type="text" class="form-control" id="group-alias-subgroup" name="subgroup" placeholder="Optional subgroup name">
+                    </div>
+                    `}
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="group-alias-class" class="form-label">Class</label>
+                        <input type="text" class="form-control" id="group-alias-class" name="character_class" placeholder="e.g., Wizard 5">
+                    </div>
+                    <div class="mb-3">
+                        <label for="group-alias-race" class="form-label">Race</label>
+                        <input type="text" class="form-control" id="group-alias-race" name="character_race" placeholder="e.g., Human">
+                    </div>
+                    <div class="mb-3">
+                        <label for="group-alias-pronouns" class="form-label">Pronouns</label>
+                        <input type="text" class="form-control" id="group-alias-pronouns" name="pronouns" placeholder="e.g., they/them">
+                    </div>
+                    <div class="mb-3">
+                        <label for="group-alias-age" class="form-label">Age</label>
+                        <input type="text" class="form-control" id="group-alias-age" name="age" placeholder="e.g., 25">
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12">
+                    <div class="mb-3">
+                        <label for="group-alias-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="group-alias-description" name="character_description" rows="3" placeholder="Character description..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="group-alias-personality" class="form-label">Personality</label>
+                        <textarea class="form-control" id="group-alias-personality" name="personality" rows="2" placeholder="Personality traits..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="group-alias-backstory" class="form-label">Backstory</label>
+                        <textarea class="form-control" id="group-alias-backstory" name="backstory" rows="3" placeholder="Character backstory..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> This character will be created in <strong>${subgroupName ? `${groupName} → ${subgroupName}` : groupName}</strong>
+            </div>
+            <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-secondary" onclick="cancelInlineCreate()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Character</button>
+            </div>
+        </form>
+    `;
+    
+    // Add form submission handler
+    document.getElementById('group-create-form').addEventListener('submit', handleInlineCreate);
+}
+
+// Render individual alias item
+function renderAliasItem(alias, isSubgroup = false) {
+    const indentStyle = isSubgroup ? 
+        'padding-left: 16px; border-left: 3px solid #6c757d; margin-left: 8px; margin-right: 8px; max-width: calc(100% - 16px);' : 
+        'margin-left: 0; margin-right: 0;';
+    
+    return `
+        <div class="list-group-item list-group-item-action alias-item" 
+             data-alias-id="${alias.id}" 
+             onclick="selectAlias(${alias.id})"
+             draggable="true"
+             style="overflow: hidden; box-sizing: border-box; ${indentStyle}">
+            <div class="d-flex align-items-center" style="min-width: 0; max-width: 100%;">
+                <div class="me-2" style="cursor: grab; flex-shrink: 0;">
+                    <i class="fas fa-grip-lines text-muted" style="font-size: 12px;"></i>
+                </div>
+                ${alias.avatar_url ? 
+                    `<img src="${alias.avatar_url}" class="rounded-circle me-2" style="width: 20px; height: 20px; flex-shrink: 0;">` :
+                    `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2" style="width: 20px; height: 20px; flex-shrink: 0;">
+                        <i class="fas fa-user text-white" style="font-size: 8px;"></i>
+                    </div>`
+                }
+                <div class="flex-grow-1" style="min-width: 0; overflow: hidden; max-width: ${isSubgroup ? 'calc(100% - 95px)' : 'calc(100% - 85px)'};">
+                    <div class="fw-bold" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: ${isSubgroup ? '0.9rem' : '1rem'};">
+                        ${alias.character_name}
+                        ${alias.is_favorite ? '<i class="fas fa-star text-warning ms-1" style="font-size: 10px;"></i>' : ''}
+                    </div>
+                    <small class="text-muted" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: ${isSubgroup ? '0.75rem' : '0.8rem'};">${alias.trigger_text}</small>
+                </div>
+                <div style="flex-shrink: 0; margin-left: 4px;" class="d-flex align-items-center gap-1">
+                    <button class="btn btn-sm btn-outline-primary p-1" 
+                            onclick="event.stopPropagation(); editAliasQuick(${alias.id})" 
+                            style="font-size: 9px; line-height: 1; border-radius: 3px;"
+                            title="Edit Alias">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <i class="fas fa-star ${alias.is_favorite ? 'text-warning' : 'text-muted'} favorite-star" 
+                       onclick="event.stopPropagation(); quickToggleFavorite(${alias.id})" 
+                       style="cursor: pointer; font-size: 10px;"
+                       title="Toggle Favorite"></i>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// =====================================
+// GROUP SHARING FUNCTIONS
+// =====================================
+
+// Share a group with another user
+function shareGroup(groupName, subgroupName = null) {
+    const modalHtml = `
+        <div class="modal fade" id="shareGroupModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-share-alt"></i> Share "${groupName}${subgroupName ? '/' + subgroupName : ''}"
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="shareGroupForm">
+                            <div class="mb-3">
+                                <label for="shareUserSearch" class="form-label">Find Discord User</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="shareUserSearch" 
+                                           placeholder="Try username like: Cogs, Tester 1, Chef Leppy, or paste User ID" required>
+                                    <button type="button" class="btn btn-outline-secondary" id="lookupUserBtn">
+                                        <i class="fas fa-search"></i> Search
+                                    </button>
+                                </div>
+                                <div class="form-text">
+                                    <strong>Option 1:</strong> Type their Discord username or nickname<br>
+                                    <strong>Option 2:</strong> Right-click user in Discord → Copy User ID (requires Developer Mode)
+                                </div>
+                                <div id="userLookupResult" class="mt-2"></div>
+                                <input type="hidden" id="selectedUserId">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="sharePermissionLevel" class="form-label">Permission Level</label>
+                                <select class="form-select" id="sharePermissionLevel" required>
+                                    <option value="manager">Manager - Can create and edit aliases</option>
+                                    <option value="speaker">Speaker - Can only use aliases for roleplay</option>
+                                </select>
+                            </div>
+                            
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>Manager:</strong> Full access to create, edit, and organize aliases in this group<br>
+                                <strong>Speaker:</strong> Can only use existing aliases for roleplay messages
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="confirmShareBtn">
+                            <i class="fas fa-share-alt"></i> Share Group
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if present
+    const existingModal = document.getElementById('shareGroupModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('shareGroupModal'));
+    
+    // Setup event handlers
+    document.getElementById('lookupUserBtn').addEventListener('click', function() {
+        const searchInput = document.getElementById('shareUserSearch').value.trim();
+        if (!searchInput) {
+            showNotification('Please enter a username or User ID first', 'warning');
+            return;
+        }
+        
+        searchDiscordUser(searchInput);
+    });
+    
+    document.getElementById('confirmShareBtn').addEventListener('click', function() {
+        const selectedUserId = document.getElementById('selectedUserId').value;
+        const permissionLevel = document.getElementById('sharePermissionLevel').value;
+        
+        if (!selectedUserId || !permissionLevel) {
+            showNotification('Please search for and select a user first', 'warning');
+            return;
+        }
+        
+        // Perform the share operation
+        fetch(`/web/api/groups/${encodeURIComponent(groupName)}/share`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin',  // Include session cookies for authentication
+            body: JSON.stringify({
+                target_user_id: selectedUserId,
+                permission_level: permissionLevel,
+                subgroup_name: subgroupName
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(`Successfully shared group with user`, 'success');
+                modal.hide();
+            } else {
+                showNotification(`Failed to share group: ${data.error}`, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error sharing group:', error);
+            showNotification('Failed to share group', 'danger');
+        });
+    });
+    
+    modal.show();
+}
+
+// Search for Discord user by username or ID
+function searchDiscordUser(searchInput) {
+    const resultDiv = document.getElementById('userLookupResult');
+    resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Searching for user...';
+    
+    // Clear any previously selected user
+    document.getElementById('selectedUserId').value = '';
+    
+    // Check if it's a User ID (17-19 digits) or username
+    const isUserId = /^\d{17,19}$/.test(searchInput);
+    
+    if (isUserId) {
+        // Direct user lookup by ID
+        fetch(`/web/api/discord/user-lookup/${searchInput}`, {
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayFoundUser(data.user);
+            } else {
+                displayUserNotFound(data.error, searchInput);
+            }
+        })
+        .catch(error => {
+            console.error('Error looking up user:', error);
+            displayUserNotFound('Failed to lookup user', searchInput);
+        });
+    } else {
+        // Username/nickname search using bot's guild access
+        searchGuildMembers(searchInput);
+    }
+}
+
+// Display found user information
+function displayFoundUser(user) {
+    const resultDiv = document.getElementById('userLookupResult');
+    const displayName = user.global_name || user.username;
+    const avatarUrl = user.avatar ? 
+        `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32` :
+        `https://cdn.discordapp.com/embed/avatars/${parseInt(user.discriminator) % 5}.png`;
+    
+    // Store the selected user ID
+    document.getElementById('selectedUserId').value = user.id;
+        
+    resultDiv.innerHTML = `
+        <div class="alert alert-success">
+            <div class="d-flex align-items-center">
+                <img src="${avatarUrl}" class="rounded-circle me-2" width="24" height="24">
+                <div class="flex-grow-1">
+                    <strong>${displayName}</strong><br>
+                    <small class="text-muted">@${user.username}${user.discriminator !== '0' ? '#' + user.discriminator : ''}</small>
+                </div>
+                <div class="badge bg-success">
+                    <i class="fas fa-check"></i> Selected
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Display user not found message
+function displayUserNotFound(errorMessage, searchedFor) {
+    const resultDiv = document.getElementById('userLookupResult');
+    resultDiv.innerHTML = `
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i> ${errorMessage}
+            ${searchedFor ? `<br><small>Searched for: "${searchedFor}"</small>` : ''}
+        </div>
+    `;
+}
+
+// Search guild members by username/nickname
+function searchGuildMembers(searchInput) {
+    const resultDiv = document.getElementById('userLookupResult');
+    
+    // Get current guild ID from session or use default
+    const currentGuildId = getCurrentGuildId() || '0';
+    
+    fetch(`/web/api/discord/guild-members/${currentGuildId}/search?q=${encodeURIComponent(searchInput)}`, {
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.members && data.members.length > 0) {
+            displayMemberSearchResults(data.members, data.total_found, data.limited);
+        } else if (data.success && data.members && data.members.length === 0) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-search"></i>
+                    No members found matching "${searchInput}" in ${data.guild_name || 'this server'}.<br>
+                    <small>Try a different search term or use Discord User ID instead.</small>
+                </div>
+            `;
+        } else {
+            // Fallback to User ID guidance
+            resultDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    ${data.error || 'Username search not available.'}<br>
+                    <strong>Alternative:</strong> Use Discord User ID instead<br>
+                    <ol class="mt-2 mb-0">
+                        <li>Right-click on "${searchInput}" in Discord</li>
+                        <li>Select "Copy User ID" (Developer Mode required)</li>
+                        <li>Paste the 18-19 digit ID here</li>
+                    </ol>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error searching guild members:', error);
+        resultDiv.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                Search failed. Please try using Discord User ID instead.<br>
+                <small>Right-click user in Discord → Copy User ID</small>
+            </div>
+        `;
+    });
+}
+
+// Display member search results with selection
+function displayMemberSearchResults(members, totalFound, limited) {
+    const resultDiv = document.getElementById('userLookupResult');
+    
+    let resultHtml = `<div class="alert alert-success">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong><i class="fas fa-users"></i> Found ${totalFound} member${totalFound === 1 ? '' : 's'}</strong>
+            ${limited ? '<small class="text-muted">(showing first 20)</small>' : ''}
+        </div>
+        <div class="member-results">`;
+    
+    members.forEach((member, index) => {
+        const displayName = member.display_name || member.global_name || member.username;
+        const nickname = member.nickname ? ` (${member.nickname})` : '';
+        const uniqueId = `member-${index}`;
+        
+        resultHtml += `
+            <div class="member-option border rounded p-2 mb-2" style="cursor: pointer;" 
+                 onclick="selectMember('${member.id}', '${displayName}', '${member.username}', '${member.avatar}', '${member.discriminator}', '${member.global_name || ''}')">
+                <div class="d-flex align-items-center">
+                    <img src="${member.avatar}" class="rounded-circle me-2" width="24" height="24">
+                    <div class="flex-grow-1">
+                        <strong>${displayName}${nickname}</strong><br>
+                        <small class="text-muted">@${member.username}${member.discriminator !== '0' ? '#' + member.discriminator : ''}</small>
+                    </div>
+                    <div class="text-primary">
+                        <i class="fas fa-hand-pointer"></i> Click to select
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    resultHtml += `</div></div>`;
+    resultDiv.innerHTML = resultHtml;
+}
+
+// Select a member from search results
+function selectMember(id, displayName, username, avatar, discriminator, globalName) {
+    // Store the selected user ID
+    document.getElementById('selectedUserId').value = id;
+    
+    // Display selected user
+    const user = {
+        id: id,
+        username: username,
+        discriminator: discriminator,
+        global_name: globalName,
+        avatar: avatar
+    };
+    
+    displayFoundUser(user);
+}
+
+// Get current guild ID from the page context
+function getCurrentGuildId() {
+    // For now, use '0' to trigger the automatic guild detection
+    // The backend will find a common guild between user and bot
+    return '0';
+}
+
+// Show group permissions in right panel
+function showGroupPermissions(groupName, subgroupName) {
+    currentSelectedAlias = null;
+    const detailsPanel = document.getElementById('character-details');
+    
+    const fullGroupName = subgroupName ? `${groupName} > ${subgroupName}` : groupName;
+    
+    detailsPanel.innerHTML = `
+        <div class="group-permissions-view">
+            <div class="text-center mb-3">
+                <i class="fas fa-${subgroupName ? 'folder' : 'folder-open'} fa-2x text-primary mb-2"></i>
+                <h4>${fullGroupName}</h4>
+                <p class="text-muted">Group Permissions</p>
+            </div>
+            
+            <div id="permissions-loading">
+                <div class="text-center">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-2">Loading permissions...</p>
+                </div>
+            </div>
+            
+            <div id="permissions-content" style="display: none;">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    `;
+    
+    // Load permissions
+    loadGroupPermissions(groupName, subgroupName);
+}
+
+// Load group permissions from the server
+function loadGroupPermissions(groupName, subgroupName) {
+    const params = new URLSearchParams({
+        group_name: groupName
+    });
+    
+    if (subgroupName) {
+        params.append('subgroup', subgroupName);
+    }
+    
+    fetch(`/web/api/group-permissions?${params}`, {
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        const loadingDiv = document.getElementById('permissions-loading');
+        const contentDiv = document.getElementById('permissions-content');
+        
+        if (data.success) {
+            displayGroupPermissions(data.permissions, groupName, subgroupName);
+            loadingDiv.style.display = 'none';
+            contentDiv.style.display = 'block';
+        } else {
+            loadingDiv.innerHTML = `
+                <div class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Failed to load permissions</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error loading permissions:', error);
+        const loadingDiv = document.getElementById('permissions-loading');
+        loadingDiv.innerHTML = `
+            <div class="text-center text-danger">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Error loading permissions</p>
+            </div>
+        `;
+    });
+}
+
+// Display group permissions
+function displayGroupPermissions(permissions, groupName, subgroupName) {
+    const contentDiv = document.getElementById('permissions-content');
+    
+    const isShared = permissions && permissions.length > 0;
+    
+    contentDiv.innerHTML = `
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6><i class="fas fa-users"></i> Shared With</h6>
+                <button class="btn btn-sm btn-outline-primary" onclick="shareGroup('${groupName}', '${subgroupName || ''}')">
+                    <i class="fas fa-share"></i> Share
+                </button>
+            </div>
+            
+            ${isShared ? `
+                <div class="list-group">
+                    ${permissions.map(perm => `
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <img src="${perm.user_avatar || 'https://cdn.discordapp.com/embed/avatars/0.png'}" 
+                                     alt="${perm.user_display_name}" 
+                                     class="rounded-circle me-2" 
+                                     style="width: 32px; height: 32px; object-fit: cover;">
+                                <div>
+                                    <strong>${perm.user_display_name}</strong><br>
+                                    <small class="text-muted">@${perm.user_username}</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-${perm.permission_level === 'owner' ? 'danger' : perm.permission_level === 'manager' ? 'warning' : 'primary'}">
+                                    ${perm.permission_level}
+                                </span>
+                                ${perm.permission_level !== 'owner' ? `
+                                    <button class="btn btn-sm btn-outline-danger" onclick="removePermission(${perm.id})">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : `
+                <div class="text-center text-muted py-3">
+                    <i class="fas fa-lock fa-2x mb-2"></i>
+                    <p>This group is private</p>
+                    <p class="small">Click "Share" to give others access</p>
+                </div>
+            `}
+        </div>
+        
+        <div class="mb-3">
+            <h6><i class="fas fa-info-circle"></i> Permission Levels</h6>
+            <div class="small text-muted">
+                <div class="d-flex align-items-center mb-1">
+                    <span class="badge bg-danger me-2">owner</span>
+                    Full control (cannot be removed)
+                </div>
+                <div class="d-flex align-items-center mb-1">
+                    <span class="badge bg-warning me-2">manager</span>
+                    Can add/edit/delete characters and share with others
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-primary me-2">speaker</span>
+                    Can use characters in Discord but cannot edit
+                </div>
+            </div>
+        </div>
+        
+        <div class="d-grid">
+            <a href="/web/group-manager" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-folder-open"></i> Open Group Manager
+            </a>
+        </div>
+    `;
+}
+
+// Remove permission
+function removePermission(permissionId) {
+    if (!confirm('Are you sure you want to remove this user\'s access?')) {
+        return;
+    }
+    
+    fetch(`/web/api/group-permissions/${permissionId}`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('User access removed successfully', 'success');
+            // Refresh the permissions view
+            const urlParams = new URLSearchParams(window.location.search);
+            const groupName = document.querySelector('.group-permissions-view h4').textContent.split(' > ')[0];
+            const subgroupName = document.querySelector('.group-permissions-view h4').textContent.includes(' > ') ? 
+                                document.querySelector('.group-permissions-view h4').textContent.split(' > ')[1] : '';
+            loadGroupPermissions(groupName, subgroupName);
+        } else {
+            showNotification(`Failed to remove access: ${data.error}`, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error removing permission:', error);
+        showNotification('Failed to remove access', 'danger');
+    });
+}
+
+// Load and display shared groups in navigation
+function loadSharedGroups() {
+    fetch('/web/api/shared-groups-simple', {
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.shared_groups.length > 0) {
+            // Add a shared groups section to the navigation if it doesn't exist
+            const navContainer = document.querySelector('.navbar-nav');
+            if (navContainer && !document.getElementById('shared-groups-nav')) {
+                const sharedGroupsNav = document.createElement('li');
+                sharedGroupsNav.className = 'nav-item dropdown';
+                sharedGroupsNav.id = 'shared-groups-nav';
+                sharedGroupsNav.innerHTML = `
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-share-alt"></i> Shared (${data.shared_groups.length})
+                    </a>
+                    <ul class="dropdown-menu">
+                        ${data.shared_groups.map(group => `
+                            <li><a class="dropdown-item" href="#" onclick="filterBySharedGroup('${group.group_name}', '${group.subgroup_name || ''}')">
+                                ${group.group_name}${group.subgroup_name ? '/' + group.subgroup_name : ''} 
+                                <small class="text-muted">(${group.permission_level})</small>
+                            </a></li>
+                        `).join('')}
+                    </ul>
+                `;
+                navContainer.appendChild(sharedGroupsNav);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error loading shared groups:', error);
+    });
+}
+
+// Filter by shared group (optional enhancement)
+function filterBySharedGroup(groupName, subgroupName) {
+    const filteredAliases = aliasesData.filter(alias => {
+        return alias.group_name === groupName && 
+               (subgroupName === '' || alias.subgroup === subgroupName);
+    });
+    
+    const searchText = `${groupName}${subgroupName ? '/' + subgroupName : ''} (shared)`;
+    renderFilteredAliases(filteredAliases, searchText);
+}
+
+// Load shared groups when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(loadSharedGroups, 1000); // Load after main page loads
+});
+
+</script>
+
+
+{% endblock %}
