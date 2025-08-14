@@ -49,7 +49,8 @@ services:
       - "443:443"
     volumes:
       - ./nginx-conf:/etc/nginx/conf.d:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - /etc/letsencrypt/live:/etc/letsencrypt/live:ro
+      - /etc/letsencrypt/archive:/etc/letsencrypt/archive:ro
       - ./nginx/logs:/var/log/nginx
     networks:
       - shared-network
